@@ -1,5 +1,5 @@
 // PoseEstimationModeEnum.java
-package frc.Enums;
+package frc.SuperSubsystem.SuperVision;
 
 /**
  * PoseEstimationModeEnum

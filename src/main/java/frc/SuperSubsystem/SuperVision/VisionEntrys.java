@@ -1,5 +1,5 @@
 // VisionEntrys.java
-package frc.Entrys;
+package frc.SuperSubsystem.SuperVision;
 
 import java.util.Collections;
 import java.util.List;
@@ -13,8 +13,6 @@ import org.photonvision.targeting.TargetCorner;
 
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.wpilibj.Timer;
-import frc.Enums.PoseEstimateSourceEnum;
-import frc.SuperSubsystem.SuperVision.SuperPhotonCamera;
 
 /**
  * VisionEntrys

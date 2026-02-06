@@ -22,9 +22,8 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
-import frc.Entrys.VisionEntrys.FrameSnapshot;
-import frc.Entrys.VisionEntrys.VisionFrameMetadata;
-import frc.Enums.PoseEstimationModeEnum;
+import frc.SuperSubsystem.SuperVision.VisionEntrys.FrameSnapshot;
+import frc.SuperSubsystem.SuperVision.VisionEntrys.VisionFrameMetadata;
 
 /**
  * SuperPhotonCamera

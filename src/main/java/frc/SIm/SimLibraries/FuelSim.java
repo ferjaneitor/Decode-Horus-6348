@@ -1,8 +1,10 @@
 package frc.SIm.SimLibraries;
 
-import static edu.wpi.first.units.Units.Meters;
-import static edu.wpi.first.units.Units.MetersPerSecond;
-import static edu.wpi.first.units.Units.Radians;
+import java.util.ArrayList;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
+
+import org.littletonrobotics.junction.Logger;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -12,13 +14,12 @@ import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.Radians;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.units.measure.LinearVelocity;
-import java.util.ArrayList;
-import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
-import org.littletonrobotics.junction.Logger;
 
 public class FuelSim {
     private static final double PERIOD = 0.02; // sec
@@ -307,7 +308,7 @@ public class FuelSim {
         }
     }
 
-    private ArrayList<Fuel> fuels = new ArrayList<Fuel>();
+    private ArrayList<Fuel> fuels = new ArrayList<>();
     private boolean running = false;
     private boolean simulateAirResistance = false;
     private Supplier<Pose2d> robotPoseSupplier = null;
@@ -801,7 +802,7 @@ public class FuelSim {
         // Initialize grid
         for (int i = 0; i < GRID_COLS; i++) {
             for (int j = 0; j < GRID_ROWS; j++) {
-                grid[i][j] = new ArrayList<Fuel>();
+                grid[i][j] = new ArrayList<>();
             }
         }
     }
