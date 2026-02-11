@@ -1,4 +1,4 @@
-package frc.robot.Subsystems;
+package frc.robot.Vision;
 
 public class VisionSubsystem {
     
