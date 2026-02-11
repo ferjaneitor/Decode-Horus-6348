@@ -1,8 +1,26 @@
 package frc.robot;
 
+import edu.wpi.first.wpilibj.RobotBase;
+
 public class Constants {
 
-    public final class ShootingConstants {
+    public static final class DriveConstants{
+        public static final Mode simMode = Mode.SIM;
+        public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
+
+        public static enum Mode {
+            /** Running on a real robot. */
+            REAL,
+
+            /** Running a physics simulator. */
+            SIM,
+
+            /** Replaying from a log file. */
+            REPLAY
+        }
+    }
+
+    public static final class ShootingConstants {
 
         public static final double TARGET_POSITION_BLUE_ALLIANCE_WELDED_X_METERS = 11.915394;
         public static final double TARGET_POSITION_BLUE_ALLIANCE_WELDED_Y_METERS = 4.034663;
