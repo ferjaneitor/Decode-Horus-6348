@@ -1,9 +1,12 @@
-package frc.robot.Drive.Gyro;
+package frc.AutoLogger;
 
 import java.util.Arrays;
 
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
+
+import frc.robot.Drive.Gyro.GyroIO;
+import frc.robot.Drive.Gyro.GyroIO.GyroIOInputs;
 
 public class GyroIOInputsAutoLogged extends GyroIO.GyroIOInputs implements LoggableInputs, Cloneable {
   @Override

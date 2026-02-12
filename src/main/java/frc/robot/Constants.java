@@ -74,4 +74,15 @@ public class Constants {
         public static final double MINIMUM_HORIZONTAL_DISTANCE_METERS = 0.1;
     }
 
+    public static final class VisionConstants {
+        public static final double maximumAmbiguityForSingleTag = 0.30;
+        public static final double maximumAbsoluteZErrorMeters = 0.75;
+
+        public static final double linearStdDevBaselineMeters = 0.02;
+        public static final double angularStdDevBaselineRadians = 0.06;
+
+        public static final double[] cameraStandardDeviationFactors = new double[] { 1.0, 1.0 };
+
+    }
+
 }

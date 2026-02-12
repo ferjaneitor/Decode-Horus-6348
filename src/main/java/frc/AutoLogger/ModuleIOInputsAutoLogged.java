@@ -1,9 +1,12 @@
-package frc.robot.Drive.SwerveModule;
+package frc.AutoLogger;
 
 import java.util.Arrays;
 
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
+
+import frc.robot.Drive.SwerveModule.ModuleIO;
+import frc.robot.Drive.SwerveModule.ModuleIO.ModuleIOInputs;
 
 public class ModuleIOInputsAutoLogged extends ModuleIO.ModuleIOInputs implements LoggableInputs, Cloneable {
   @Override
