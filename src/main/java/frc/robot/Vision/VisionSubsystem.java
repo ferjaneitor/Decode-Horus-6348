@@ -1,157 +1,190 @@
 package frc.robot.Vision;
 
-
-import java.util.ArrayList;
-import java.util.List;
-
-import org.littletonrobotics.junction.Logger;
-
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.SuperSubsystem.SuperVision.PoseEstimateSourceEnum;
+import frc.AutoLogger.VisionIOInputsAutoLogged;
+import frc.SuperSubsystem.SuperVision.LoggedVisionCamera;
+import frc.SuperSubsystem.SuperVision.VisionEntries;
+import frc.SuperSubsystem.SuperVision.VisionEnums;
 import frc.SuperSubsystem.SuperVision.VisionIO;
-import frc.robot.Constants.VisionConstants;
+import frc.SuperSubsystem.SuperVision.VisionStandardDeviationModel;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 public class VisionSubsystem extends SubsystemBase {
 
-    @FunctionalInterface
-    public interface VisionConsumer {
-        void accept(Pose2d visionRobotPoseMeters, double timestampSeconds, Matrix<N3, N1> visionMeasurementStdDevs);
+    public interface VisionPoseMeasurementConsumer {
+        void addVisionMeasurement(Pose2d visionRobotPose, double timestampSeconds, Matrix<N3, N1> visionMeasurementStandardDeviations);
     }
 
+    public interface VisionHardwareFactory {
+        VisionIO createVisionHardware(VisionEntries.CameraSpecifications cameraSpecifications, AprilTagFieldLayout aprilTagFieldLayout);
+    }
+
+    private final List<LoggedVisionCamera> loggedVisionCameraList = new ArrayList<>();
+
+    private final Supplier<Pose2d> currentRobotPoseSupplier;
+    private final Supplier<Double> yawRateRadiansPerSecondSupplier;
+    private final VisionPoseMeasurementConsumer visionPoseMeasurementConsumer;
+
     private final AprilTagFieldLayout aprilTagFieldLayout;
-    private final VisionConsumer visionConsumer;
+    private final VisionStandardDeviationModel visionStandardDeviationModel;
 
-    private final VisionIO[] visionInputOutputArray;
-    private final VisionIOInputsAutoLogged[] visionInputsAutoLoggedArray;
+    private final double fieldLengthMeters;
+    private final double fieldWidthMeters;
 
-    private final PoseEstimateSourceEnum[] cameraTrustLevels;
-    private final Alert[] disconnectedCameraAlerts;
+    private boolean visionEnabled = true;
 
     public VisionSubsystem(
             AprilTagFieldLayout aprilTagFieldLayout,
-            VisionConsumer visionConsumer,
-            PoseEstimateSourceEnum[] cameraTrustLevels,
-            VisionIO... visionInputOutputArray
+            double fieldLengthMeters,
+            double fieldWidthMeters,
+            Supplier<Pose2d> currentRobotPoseSupplier,
+            Supplier<Double> yawRateRadiansPerSecondSupplier,
+            VisionPoseMeasurementConsumer visionPoseMeasurementConsumer,
+            VisionStandardDeviationModel visionStandardDeviationModel,
+            List<VisionEntries.CameraSpecifications> cameraSpecificationsList,
+            VisionHardwareFactory visionHardwareFactory
     ) {
         this.aprilTagFieldLayout = aprilTagFieldLayout;
-        this.visionConsumer = visionConsumer;
-        this.cameraTrustLevels = cameraTrustLevels;
+        this.fieldLengthMeters = fieldLengthMeters;
+        this.fieldWidthMeters = fieldWidthMeters;
+        this.currentRobotPoseSupplier = currentRobotPoseSupplier;
+        this.yawRateRadiansPerSecondSupplier = yawRateRadiansPerSecondSupplier;
+        this.visionPoseMeasurementConsumer = visionPoseMeasurementConsumer;
+        this.visionStandardDeviationModel = visionStandardDeviationModel;
 
-        this.visionInputOutputArray = visionInputOutputArray;
-        this.visionInputsAutoLoggedArray = new VisionIOInputsAutoLogged[visionInputOutputArray.length];
-        this.disconnectedCameraAlerts = new Alert[visionInputOutputArray.length];
+        for (VisionEntries.CameraSpecifications cameraSpecifications : cameraSpecificationsList) {
+            VisionIO visionHardwareInterface = visionHardwareFactory.createVisionHardware(cameraSpecifications, aprilTagFieldLayout);
 
-        for (int cameraIndex = 0; cameraIndex < visionInputOutputArray.length; cameraIndex++) {
-            visionInputsAutoLoggedArray[cameraIndex] = new VisionIOInputsAutoLogged();
-            disconnectedCameraAlerts[cameraIndex] = new Alert(
-                    "Vision camera " + cameraIndex + " is disconnected.",
-                    AlertType.kWarning
+            loggedVisionCameraList.add(
+                    new LoggedVisionCamera(
+                            cameraSpecifications.cameraName(),
+                            visionHardwareInterface,
+                            cameraSpecifications.baseNoiseLevel(),
+                            cameraSpecifications.cameraConfidenceMultiplier()
+                    )
             );
         }
     }
 
     @Override
     public void periodic() {
-        List<Pose3d> acceptedRobotPoses = new ArrayList<>();
-        List<Pose3d> rejectedRobotPoses = new ArrayList<>();
+        if (!visionEnabled || loggedVisionCameraList.isEmpty()) {
+            return;
+        }
 
-        for (int cameraIndex = 0; cameraIndex < visionInputOutputArray.length; cameraIndex++) {
-            VisionIO visionInputOutput = visionInputOutputArray[cameraIndex];
-            VisionIOInputsAutoLogged inputs = visionInputsAutoLoggedArray[cameraIndex];
+        Pose2d currentRobotPose2d = currentRobotPoseSupplier.get();
+        Pose3d currentRobotPose3d = new Pose3d(currentRobotPose2d);
 
-            visionInputOutput.updateInputs(inputs);
-            Logger.processInputs("Vision/Camera" + cameraIndex, inputs);
+        double currentRobotTimestampSeconds = Timer.getFPGATimestamp();
+        double yawRateRadiansPerSecond = yawRateRadiansPerSecondSupplier.get();
 
-            disconnectedCameraAlerts[cameraIndex].set(!inputs.cameraConnected);
+        for (LoggedVisionCamera loggedVisionCamera : loggedVisionCameraList) {
+            loggedVisionCamera.update(currentRobotPose3d);
 
-            PoseEstimateSourceEnum trustLevel =
-                    (cameraIndex < cameraTrustLevels.length) ? cameraTrustLevels[cameraIndex] : PoseEstimateSourceEnum.MEDIUM;
+            VisionIOInputsAutoLogged visionInputs = loggedVisionCamera.getVisionInputs();
 
-            double cameraFactor =
-                    (cameraIndex < VisionConstants.cameraStandardDeviationFactors.length) ? VisionConstants.cameraStandardDeviationFactors[cameraIndex] : 1.0;
+            List<Pose3d> visibleTagPoseList = new ArrayList<>();
+            for (long detectedTagIdentifier : visionInputs.detectedTagIdentifiers) {
+                Optional<Pose3d> fieldToTagPoseOptional = aprilTagFieldLayout.getTagPose((int) detectedTagIdentifier);
+                fieldToTagPoseOptional.ifPresent(visibleTagPoseList::add);
+            }
 
-            for (VisionIO.PoseObservation poseObservation : inputs.poseObservations) {
-                boolean rejected = shouldRejectPose(poseObservation);
-                if (rejected) {
-                    rejectedRobotPoses.add(poseObservation.robotPose());
+            int observationCount = visionInputs.observationTimestampsSeconds.length;
+
+            Pose3d[] rawRobotPoseEstimateArray = new Pose3d[observationCount];
+            List<Pose3d> acceptedRobotPoseEstimateList = new ArrayList<>();
+            List<Pose3d> rejectedRobotPoseEstimateList = new ArrayList<>();
+
+            VisionEnums.VisionRejectReason lastRejectReason = null;
+
+            for (int observationIndex = 0; observationIndex < observationCount; observationIndex++) {
+                Pose3d robotPose = visionInputs.observationRobotPoses[observationIndex];
+                rawRobotPoseEstimateArray[observationIndex] = robotPose;
+
+                int tagCount = (int) visionInputs.observationTagCounts[observationIndex];
+
+                int observationTypeOrdinal = (int) visionInputs.observationTypeOrdinals[observationIndex];
+                VisionEnums.PoseObservationType observationType =
+                        VisionEnums.PoseObservationType.values()[
+                                Math.max(0, Math.min(observationTypeOrdinal, VisionEnums.PoseObservationType.values().length - 1))
+                        ];
+
+                VisionEntries.VisionObservation visionObservation = new VisionEntries.VisionObservation(
+                        loggedVisionCamera.getCameraName(),
+                        visionInputs.observationTimestampsSeconds[observationIndex],
+                        robotPose,
+                        visionInputs.observationAmbiguities[observationIndex],
+                        tagCount,
+                        visionInputs.observationAverageTagDistanceMeters[observationIndex],
+                        visionInputs.observationRotationTrusted[observationIndex],
+                        observationType
+                );
+
+                if (!visionInputs.photonPoseEstimatorEnabled) {
+                    rejectedRobotPoseEstimateList.add(robotPose);
+                    lastRejectReason = VisionEnums.VisionRejectReason.PHOTON_POSE_ESTIMATOR_DISABLED;
                     continue;
                 }
 
-                acceptedRobotPoses.add(poseObservation.robotPose());
-
-                Matrix<N3, N1> standardDeviations = calculateStandardDeviations(poseObservation, cameraFactor, trustLevel);
-
-                visionConsumer.accept(
-                        poseObservation.robotPose().toPose2d(),
-                        poseObservation.timestampSeconds(),
-                        standardDeviations
+                VisionEnums.VisionRejectReason rejectReason = visionStandardDeviationModel.getRejectReasonOrNull(
+                        visionObservation,
+                        currentRobotTimestampSeconds,
+                        yawRateRadiansPerSecond,
+                        fieldLengthMeters,
+                        fieldWidthMeters
                 );
+
+                if (rejectReason != null) {
+                    rejectedRobotPoseEstimateList.add(robotPose);
+                    lastRejectReason = rejectReason;
+                    continue;
+                }
+
+                Matrix<N3, N1> baseStandardDeviationMatrix =
+                        loggedVisionCamera.getBaseNoiseLevel().getBaseStandardDeviationMatrix();
+
+                Matrix<N3, N1> visionMeasurementStandardDeviations =
+                        visionStandardDeviationModel.calculateStandardDeviations(
+                                visionObservation,
+                                baseStandardDeviationMatrix,
+                                loggedVisionCamera.getCameraConfidenceMultiplier()
+                        );
+
+                visionPoseMeasurementConsumer.addVisionMeasurement(
+                        robotPose.toPose2d(),
+                        visionObservation.timestampSeconds(),
+                        visionMeasurementStandardDeviations
+                );
+
+                acceptedRobotPoseEstimateList.add(robotPose);
             }
-        }
 
-        Logger.recordOutput("Vision/Summary/AcceptedRobotPoses", acceptedRobotPoses.toArray(Pose3d[]::new));
-        Logger.recordOutput("Vision/Summary/RejectedRobotPoses", rejectedRobotPoses.toArray(Pose3d[]::new));
+            Pose3d[] visibleTagPoseArray = visibleTagPoseList.toArray(Pose3d[]::new);
+            Pose3d[] acceptedRobotPoseEstimateArray = acceptedRobotPoseEstimateList.toArray(Pose3d[]::new);
+            Pose3d[] rejectedRobotPoseEstimateArray = rejectedRobotPoseEstimateList.toArray(Pose3d[]::new);
+
+            loggedVisionCamera.recordCameraOutputs(
+                    visibleTagPoseArray,
+                    rawRobotPoseEstimateArray,
+                    acceptedRobotPoseEstimateArray,
+                    rejectedRobotPoseEstimateArray,
+                    lastRejectReason
+            );
+        }
     }
 
-    private boolean shouldRejectPose(VisionIO.PoseObservation poseObservation) {
-        if (poseObservation.tagCount() <= 0) {
-            return true;
-        }
-
-        if (poseObservation.tagCount() == 1 && poseObservation.ambiguity() > VisionConstants.maximumAmbiguityForSingleTag) {
-            return true;
-        }
-
-        if (Math.abs(poseObservation.robotPose().getZ()) > VisionConstants.maximumAbsoluteZErrorMeters) {
-            return true;
-        }
-
-        double robotX = poseObservation.robotPose().getX();
-        double robotY = poseObservation.robotPose().getY();
-
-        return robotX < 0.0
-                || robotX > aprilTagFieldLayout.getFieldLength()
-                || robotY < 0.0
-                || robotY > aprilTagFieldLayout.getFieldWidth();
-    }
-
-    private Matrix<N3, N1> calculateStandardDeviations(
-            VisionIO.PoseObservation poseObservation,
-            double cameraFactor,
-            PoseEstimateSourceEnum trustLevel
-    ) {
-        double distanceMeters = Math.max(0.001, poseObservation.averageTagDistanceMeters());
-        int tagCount = Math.max(1, poseObservation.tagCount());
-
-        double baseFactor = (distanceMeters * distanceMeters) / tagCount;
-
-        double linearStdDevMeters = VisionConstants.linearStdDevBaselineMeters * baseFactor * cameraFactor;
-        double angularStdDevRadians = VisionConstants.angularStdDevBaselineRadians * baseFactor * cameraFactor;
-
-        if (!poseObservation.visionRotationTrusted()) {
-            angularStdDevRadians = Double.POSITIVE_INFINITY;
-        }
-
-        double trustMultiplier = switch (trustLevel) {
-            case LOW -> 0.5;
-            case MEDIUM -> 1.0;
-            case HIGH -> 2.0;
-            case NONE -> 1e6;
-        };
-
-        return VecBuilder.fill(
-                linearStdDevMeters * trustMultiplier,
-                linearStdDevMeters * trustMultiplier,
-                angularStdDevRadians * trustMultiplier
-        );
+    public void setVisionEnabled(boolean visionEnabled) {
+        this.visionEnabled = visionEnabled;
     }
 }

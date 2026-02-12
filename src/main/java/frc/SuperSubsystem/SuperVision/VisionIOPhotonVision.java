@@ -1,5 +1,9 @@
 package frc.SuperSubsystem.SuperVision;
 
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Transform3d;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -11,45 +15,30 @@ import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.targeting.PhotonPipelineResult;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Transform3d;
-
 public class VisionIOPhotonVision implements VisionIO {
 
-    private final PhotonCamera photonCamera;
-    private final Transform3d robotToCameraTransform;
-    private final AprilTagFieldLayout aprilTagFieldLayout;
+    protected final PhotonCamera photonCamera;
+    private final PhotonPoseEstimator photonPoseEstimator;
 
-    private PhotonPoseEstimator photonPoseEstimator;
-    private PoseEstimationModeEnum poseEstimationMode;
-    private Pose3d referencePoseForEstimation;
+    private VisionEnums.PoseEstimationMode poseEstimationMode = VisionEnums.PoseEstimationMode.COPROCESSOR_MULTI_TAG;
+    private Pose3d referencePoseForEstimation = new Pose3d();
 
     public VisionIOPhotonVision(
             String cameraName,
-            Transform3d robotToCameraTransform,
+            Transform3d robotToCameraTransform3d,
             AprilTagFieldLayout aprilTagFieldLayout
     ) {
         this.photonCamera = new PhotonCamera(cameraName);
-        this.robotToCameraTransform = robotToCameraTransform;
-        this.aprilTagFieldLayout = aprilTagFieldLayout;
 
-        this.photonPoseEstimator = null;
-        this.poseEstimationMode = PoseEstimationModeEnum.COPROCESSOR_MULTI_TAG;
-        this.referencePoseForEstimation = new Pose3d();
+        // 2026: preferred constructor is (fieldTags, robotToCamera). :contentReference[oaicite:3]{index=3}
+        this.photonPoseEstimator = new PhotonPoseEstimator(aprilTagFieldLayout, robotToCameraTransform3d);
     }
 
-    public void enablePoseEstimation() {
-        // NOTE: constructor/methods depend on PhotonVision version.
-        // If this line does not compile in your project, we adjust it to your PV version.
-        this.photonPoseEstimator = new PhotonPoseEstimator(aprilTagFieldLayout, robotToCameraTransform);
+    public void setPoseEstimationMode(VisionEnums.PoseEstimationMode poseEstimationMode) {
+        this.poseEstimationMode = poseEstimationMode;
     }
 
-    public void setPoseEstimationMode(PoseEstimationModeEnum mode) {
-        this.poseEstimationMode = mode;
-    }
-
+    @Override
     public void setReferencePoseForEstimation(Pose3d referencePose) {
         this.referencePoseForEstimation = referencePose;
     }
@@ -62,99 +51,121 @@ public class VisionIOPhotonVision implements VisionIO {
     @Override
     public void updateInputs(VisionIOInputs inputs) {
         inputs.cameraConnected = photonCamera.isConnected();
+        inputs.photonPoseEstimatorEnabled = true;
 
-        Set<Integer> detectedTagIdentifiers = new HashSet<>();
-        List<PoseObservation> poseObservationList = new ArrayList<>();
+        List<PhotonPipelineResult> unreadPipelineResults = photonCamera.getAllUnreadResults();
+        if (unreadPipelineResults == null || unreadPipelineResults.isEmpty()) {
+            inputs.observationTimestampsSeconds = new double[0];
+            inputs.observationRobotPoses = new Pose3d[0];
+            inputs.observationAmbiguities = new double[0];
+            inputs.observationTagCounts = new long[0];
+            inputs.observationAverageTagDistanceMeters = new double[0];
+            inputs.observationRotationTrusted = new boolean[0];
+            inputs.observationTypeOrdinals = new long[0];
+            inputs.detectedTagIdentifiers = new long[0];
+            return;
+        }
 
-        for (PhotonPipelineResult pipelineResult : photonCamera.getAllUnreadResults()) {
-            // Latest best target observation (aiming)
+        Set<Integer> detectedTagIdentifierSet = new HashSet<>();
+
+        List<Double> timestampList = new ArrayList<>();
+        List<Pose3d> robotPoseList = new ArrayList<>();
+        List<Double> ambiguityList = new ArrayList<>();
+        List<Long> tagCountList = new ArrayList<>();
+        List<Double> averageDistanceList = new ArrayList<>();
+        List<Boolean> rotationTrustedList = new ArrayList<>();
+        List<Long> observationTypeOrdinalList = new ArrayList<>();
+
+        for (PhotonPipelineResult pipelineResult : unreadPipelineResults) {
+            if (pipelineResult == null) {
+                continue;
+            }
+
             if (pipelineResult.hasTargets()) {
                 var bestTarget = pipelineResult.getBestTarget();
-                inputs.latestTargetObservation = new TargetObservation(
-                        Rotation2d.fromDegrees(bestTarget.getYaw()),
-                        Rotation2d.fromDegrees(bestTarget.getPitch())
-                );
+                inputs.latestTargetYawRadians = Math.toRadians(bestTarget.getYaw());
+                inputs.latestTargetPitchRadians = Math.toRadians(bestTarget.getPitch());
             } else {
-                inputs.latestTargetObservation = new TargetObservation(Rotation2d.kZero, Rotation2d.kZero);
+                inputs.latestTargetYawRadians = 0.0;
+                inputs.latestTargetPitchRadians = 0.0;
             }
 
-            // Pose observation (preferred path = PhotonPoseEstimator)
-            Optional<PoseObservation> poseObservationOptional = buildPoseObservation(pipelineResult, detectedTagIdentifiers);
-            poseObservationOptional.ifPresent(poseObservationList::add);
-        }
+            Optional<EstimatedRobotPose> estimatedRobotPoseOptional = estimateRobotPoseWithFallback(pipelineResult);
+            if (estimatedRobotPoseOptional.isEmpty()) {
+                continue;
+            }
 
-        inputs.poseObservations = poseObservationList.toArray(PoseObservation[]::new);
+            EstimatedRobotPose estimatedRobotPose = estimatedRobotPoseOptional.get();
+            Pose3d estimatedRobotPose3d = estimatedRobotPose.estimatedPose;
 
-        int[] tagIdentifierArray = new int[detectedTagIdentifiers.size()];
-        int tagIndex = 0;
-        for (int detectedTagIdentifier : detectedTagIdentifiers) {
-            tagIdentifierArray[tagIndex++] = detectedTagIdentifier;
-        }
-        inputs.detectedTagIdentifiers = tagIdentifierArray;
-    }
+            int tagCount = (estimatedRobotPose.targetsUsed != null) ? estimatedRobotPose.targetsUsed.size() : 0;
+            if (tagCount <= 0) {
+                continue;
+            }
 
-    private Optional<PoseObservation> buildPoseObservation(
-            PhotonPipelineResult pipelineResult,
-            Set<Integer> detectedTagIdentifiers
-    ) {
-        if (photonPoseEstimator == null) {
-            return Optional.empty();
-        }
+            double totalDistanceMeters = 0.0;
+            double poseAmbiguity = 0.0;
 
-        Optional<EstimatedRobotPose> estimatedRobotPoseOptional = estimateRobotPose(pipelineResult);
-        if (estimatedRobotPoseOptional.isEmpty()) {
-            return Optional.empty();
-        }
-
-        EstimatedRobotPose estimatedRobotPose = estimatedRobotPoseOptional.get();
-
-        Pose3d robotPose = estimatedRobotPose.estimatedPose;
-        double timestampSeconds = estimatedRobotPose.timestampSeconds;
-
-        int tagCount = (estimatedRobotPose.targetsUsed != null) ? estimatedRobotPose.targetsUsed.size() : 0;
-
-        double totalDistanceMeters = 0.0;
-        double ambiguity = 0.0;
-
-        if (estimatedRobotPose.targetsUsed != null && !estimatedRobotPose.targetsUsed.isEmpty()) {
             for (var target : estimatedRobotPose.targetsUsed) {
-                detectedTagIdentifiers.add(target.getFiducialId());
+                detectedTagIdentifierSet.add(target.getFiducialId());
                 totalDistanceMeters += target.getBestCameraToTarget().getTranslation().getNorm();
             }
-            totalDistanceMeters /= estimatedRobotPose.targetsUsed.size();
+            totalDistanceMeters /= tagCount;
 
-            if (estimatedRobotPose.targetsUsed.size() == 1) {
-                ambiguity = estimatedRobotPose.targetsUsed.get(0).getPoseAmbiguity();
+            if (tagCount == 1) {
+                poseAmbiguity = estimatedRobotPose.targetsUsed.get(0).getPoseAmbiguity();
             }
+
+            boolean rotationTrusted = tagCount > 1;
+
+            VisionEnums.PoseObservationType observationType =
+                    (tagCount > 1)
+                            ? VisionEnums.PoseObservationType.PHOTONVISION_MULTI_TAG
+                            : VisionEnums.PoseObservationType.PHOTONVISION_SINGLE_TAG;
+
+            timestampList.add(estimatedRobotPose.timestampSeconds);
+            robotPoseList.add(estimatedRobotPose3d);
+            ambiguityList.add(poseAmbiguity);
+            tagCountList.add((long) tagCount);
+            averageDistanceList.add(totalDistanceMeters);
+            rotationTrustedList.add(rotationTrusted);
+            observationTypeOrdinalList.add((long) observationType.ordinal());
         }
 
-        boolean visionRotationTrusted = tagCount > 1;
+        inputs.observationTimestampsSeconds = timestampList.stream().mapToDouble(Double::doubleValue).toArray();
+        inputs.observationRobotPoses = robotPoseList.toArray(Pose3d[]::new);
+        inputs.observationAmbiguities = ambiguityList.stream().mapToDouble(Double::doubleValue).toArray();
+        inputs.observationTagCounts = tagCountList.stream().mapToLong(Long::longValue).toArray();
+        inputs.observationAverageTagDistanceMeters = averageDistanceList.stream().mapToDouble(Double::doubleValue).toArray();
 
-        VisionIO.PoseObservationType observationType =
-                (tagCount > 1)
-                        ? VisionIO.PoseObservationType.PHOTONVISION_MULTI_TAG
-                        : VisionIO.PoseObservationType.PHOTONVISION_SINGLE_TAG;
+        inputs.observationRotationTrusted = new boolean[rotationTrustedList.size()];
+        for (int observationIndex = 0; observationIndex < rotationTrustedList.size(); observationIndex++) {
+            inputs.observationRotationTrusted[observationIndex] = rotationTrustedList.get(observationIndex);
+        }
 
-        return Optional.of(
-                new PoseObservation(
-                        timestampSeconds,
-                        robotPose,
-                        ambiguity,
-                        tagCount,
-                        totalDistanceMeters,
-                        observationType,
-                        visionRotationTrusted
-                )
-        );
+        inputs.observationTypeOrdinals = observationTypeOrdinalList.stream().mapToLong(Long::longValue).toArray();
+
+        long[] detectedTagIdentifierArray = new long[detectedTagIdentifierSet.size()];
+        int detectedTagIndex = 0;
+        for (int detectedTagIdentifier : detectedTagIdentifierSet) {
+            detectedTagIdentifierArray[detectedTagIndex++] = detectedTagIdentifier;
+        }
+        inputs.detectedTagIdentifiers = detectedTagIdentifierArray;
     }
 
-    private Optional<EstimatedRobotPose> estimateRobotPose(PhotonPipelineResult pipelineResult) {
+    private Optional<EstimatedRobotPose> estimateRobotPoseWithFallback(PhotonPipelineResult pipelineResult) {
+        Optional<EstimatedRobotPose> coprocessorMultiTagEstimate =
+                photonPoseEstimator.estimateCoprocMultiTagPose(pipelineResult);
+
+        if (coprocessorMultiTagEstimate.isPresent()) {
+            return coprocessorMultiTagEstimate;
+        }
+
         return switch (poseEstimationMode) {
-            case COPROCESSOR_MULTI_TAG -> photonPoseEstimator.estimateCoprocMultiTagPose(pipelineResult);
+            case COPROCESSOR_MULTI_TAG -> photonPoseEstimator.estimateLowestAmbiguityPose(pipelineResult);
             case LOWEST_AMBIGUITY -> photonPoseEstimator.estimateLowestAmbiguityPose(pipelineResult);
-            case CLOSEST_TO_REFERENCE_POSE -> photonPoseEstimator.estimateClosestToReferencePose(
-                    pipelineResult, referencePoseForEstimation
-            );
+            case CLOSEST_TO_REFERENCE_POSE ->
+                    photonPoseEstimator.estimateClosestToReferencePose(pipelineResult, referencePoseForEstimation);
             case AVERAGE_BEST_TARGETS -> photonPoseEstimator.estimateAverageBestTargetsPose(pipelineResult);
         };
     }
