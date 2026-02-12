@@ -5,6 +5,18 @@ import java.util.List;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Transform3d;
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.KilogramSquareMeters;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.Rotations;
+import static edu.wpi.first.units.Units.Volts;
+import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.units.measure.Current;
+import edu.wpi.first.units.measure.Distance;
+import edu.wpi.first.units.measure.LinearVelocity;
+import edu.wpi.first.units.measure.MomentOfInertia;
+import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.RobotBase;
 import frc.SuperSubsystem.SuperVision.VisionEntries;
 import frc.SuperSubsystem.SuperVision.VisionEnums;
@@ -25,6 +37,106 @@ public class Constants {
             /** Replaying from a log file. */
             REPLAY
         }
+
+        public static final double ROBOT_MASS_KG = 74.088;
+        public static final double ROBOT_MOI = 6.883;
+        public static final double WHEEL_COF = 1.2;
+
+        public static final double STEER_GAINS_KP = 100;
+        public static final double STEER_GAINS_KI = 0.0;
+        public static final double STEER_GAINS_KD = 0.5;
+        public static final double STEER_GAINS_KS = 0.1;
+        public static final double STEER_GAINS_KV = 1.91;
+        public static final double STEER_GAINS_KA = 0.0;
+
+        public static final double DRIVE_GAINS_KP = 0.1;
+        public static final double DRIVE_GAINS_KI = 0.0;
+        public static final double DRIVE_GAINS_KD = 0.0;
+        public static final double DRIVE_GAINS_KS = 0.0;
+        public static final double DRIVE_GAINS_KV = 0.124;
+        public static final double DRIVE_GAINS_KA = 0.0;
+
+        public static final Current kSlipCurrent = Amps.of(120.0);
+        public static final Current SteeringStatorCurrentLimit = Amps.of(60.0);
+
+        public static final String CAN_BUS = "CANivore";
+        public static final String HOOT_FILE_PATH = "./logs/example.hoot";
+
+        public static final LinearVelocity kSpeedAt12Volts = MetersPerSecond.of(4.69);
+
+        public static final double K_COUPLE_RATIO = 3.8181818181818183;
+        public static final double K_DRIVE_GEAR_RATIO = 7.363636363636365;
+        public static final double K_STEER_GEAR_RATIO = 15.42857142857143;
+        public static final Distance kWheelRadius = Inches.of(2.167);
+
+        public static final boolean K_INVERT_LEFT_SIDE = false;
+        public static final boolean K_INVERT_RIGHT_SIDE = true;
+
+        public static final int K_PIGEON_ID = 1;
+
+        // These are only used for simulation
+        public static final MomentOfInertia kSteerInertia = KilogramSquareMeters.of(0.004);
+        public static final MomentOfInertia kDriveInertia = KilogramSquareMeters.of(0.025);
+        // Simulated voltage necessary to overcome friction
+        public static final Voltage kSteerFrictionVoltage = Volts.of(0.2);
+        public static final Voltage kDriveFrictionVoltage = Volts.of(0.2);
+
+        public static final Distance kTrackWidth = Inches.of(20);
+        public static final Distance kWheelBase = Inches.of(20);
+
+        // Front Left
+        public static final int K_FRONT_LEFT_DRIVE_MOTOR_ID = 3;
+        public static final int K_FRONT_LEFT_STEER_MOTOR_ID = 2;
+        public static final int K_FRONT_LEFT_ENCODER_ID = 1;
+        public static final Angle kFrontLeftEncoderOffset = Rotations.of(0.15234375);
+        public static final boolean K_FRONT_LEFT_STEER_MOTOR_INVERTED = true;
+        public static final boolean K_FRONT_LEFT_ENCODER_INVERTED = false;
+
+        public static final Distance kFrontLeftXPos = kWheelBase.div(2);
+        public static final Distance kFrontLeftYPos = kTrackWidth.div(2);
+
+        // Front Right
+        public static final int K_FRONT_RIGHT_DRIVE_MOTOR_ID = 1;
+        public static final int K_FRONT_RIGHT_STEER_MOTOR_ID = 0;
+        public static final int K_FRONT_RIGHT_ENCODER_ID = 0;
+        public static final Angle kFrontRightEncoderOffset = Rotations.of(-0.4873046875);
+        public static final boolean K_FRONT_RIGHT_STEER_MOTOR_INVERTED = true;
+        public static final boolean K_FRONT_RIGHT_ENCODER_INVERTED = false;
+
+        public static final Distance kFrontRightXPos = kWheelBase.div(2);
+        public static final Distance kFrontRightYPos = kTrackWidth.div(-2);
+
+        // Back Left
+        public static final int K_BACK_LEFT_DRIVE_MOTOR_ID = 7;
+        public static final int K_BACK_LEFT_STEER_MOTOR_ID = 6;
+        public static final int K_BACK_LEFT_ENCODER_ID = 3;
+        public static final Angle kBackLeftEncoderOffset = Rotations.of(-0.219482421875);
+        public static final boolean K_BACK_LEFT_STEER_MOTOR_INVERTED = true;
+        public static final boolean K_BACK_LEFT_ENCODER_INVERTED = false;
+
+        public static final Distance kBackLeftXPos = kWheelBase.div(-2);
+        public static final Distance kBackLeftYPos = kTrackWidth.div(2);
+
+        // Back Right
+        public static final int K_BACK_RIGHT_DRIVE_MOTOR_ID = 5;
+        public static final int K_BACK_RIGHT_STEER_MOTOR_ID = 4;
+        public static final int K_BACK_RIGHT_ENCODER_ID = 2;
+        public static final Angle kBackRightEncoderOffset = Rotations.of(0.17236328125);
+        public static final boolean K_BACK_RIGHT_STEER_MOTOR_INVERTED = true;
+        public static final boolean K_BACK_RIGHT_ENCODER_INVERTED = false;
+
+        public static final Distance kBackRightXPos = kWheelBase.div(-2);
+        public static final Distance kBackRightYPos = kTrackWidth.div(-2);
+    }
+
+    public static final class AutoConstants{
+        public static final double TRANSLATION_KP = 5.0;
+        public static final double TRANSLATION_KI = 0.0;
+        public static final double TRANSLATION_KD  = 0.0;
+
+        public static final double ROTATION_KP = 5.0;
+        public static final double ROTATION_KI = 0.0;
+        public static final double ROTATION_KD = 0.0;
     }
 
     public static final class ShootingConstants {
