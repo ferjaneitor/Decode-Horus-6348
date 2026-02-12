@@ -6,7 +6,6 @@ import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
 
 import frc.robot.Drive.Gyro.GyroIO;
-import frc.robot.Drive.Gyro.GyroIO.GyroIOInputs;
 
 public class GyroIOInputsAutoLogged extends GyroIO.GyroIOInputs implements LoggableInputs, Cloneable {
   @Override
@@ -54,7 +53,7 @@ public class GyroIOInputsAutoLogged extends GyroIO.GyroIOInputs implements Logga
   }
 
   @Override
-  public GyroIOInputsAutoLogged clone() {
+  public GyroIOInputsAutoLogged clone() throws CloneNotSupportedException {
     GyroIOInputsAutoLogged copy;
     try {
       copy = (GyroIOInputsAutoLogged) super.clone();

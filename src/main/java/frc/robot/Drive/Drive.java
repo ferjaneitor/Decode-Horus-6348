@@ -7,7 +7,11 @@
 
 package frc.robot.Drive;
 
-import static edu.wpi.first.units.Units.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.ModuleConfig;
@@ -16,6 +20,7 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
+
 import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
@@ -32,6 +37,8 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.system.plant.DCMotor;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.Volts;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -46,10 +53,6 @@ import frc.robot.Drive.Generated.TunerConstants;
 import frc.robot.Drive.Gyro.GyroIO;
 import frc.robot.Drive.SwerveModule.ModuleIO;
 import frc.robot.Util.LocalADStarAK;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import org.littletonrobotics.junction.AutoLogOutput;
-import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
   // TunerConstants doesn't include these constants, so they are declared locally
@@ -85,7 +88,9 @@ public class Drive extends SubsystemBase {
   private final GyroIO gyroIO;
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
   private final frc.robot.Drive.SwerveModule.Module[] modules = new frc.robot.Drive.SwerveModule.Module[4]; // FL, FR, BL, BR
-  private final SysIdRoutine sysId;
+  private SysIdRoutine sysIdRoutine;
+  private boolean hasOdometryThreadBeenStarted = false;
+  private boolean hasPathPlannerBeenConfigured = false;
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
 
@@ -100,6 +105,7 @@ public class Drive extends SubsystemBase {
       };
   private final SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
+  private boolean odometryThreadStarted = false;
 
   public Drive(
       GyroIO gyroIO,
@@ -116,32 +122,56 @@ public class Drive extends SubsystemBase {
     // Usage reporting for swerve template
     HAL.report(tResourceType.kResourceType_RobotDrive, tInstances.kRobotDriveSwerve_AdvantageKit);
 
-    // Start odometry thread
-    PhoenixOdometryThread.getInstance().start();
+  }
 
-    // Configure AutoBuilder for PathPlanner
+  public void initializeIfNeeded() {
+    startOdometryThreadIfNeeded();
+    configurePathPlannerIfNeeded();
+    configureSysIdRoutineIfNeeded();
+  }
+
+  private void startOdometryThreadIfNeeded() {
+    if (hasOdometryThreadBeenStarted) {
+      return;
+    }
+    PhoenixOdometryThread.getInstance().start();
+    hasOdometryThreadBeenStarted = true;
+  }
+
+  private void configurePathPlannerIfNeeded() {
+    if (hasPathPlannerBeenConfigured) {
+      return;
+    }
+
     AutoBuilder.configure(
         this::getPose,
         this::setPose,
         this::getChassisSpeeds,
         this::runVelocity,
         new PPHolonomicDriveController(
-            new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
+            new PIDConstants(5.0, 0.0, 0.0),
+            new PIDConstants(5.0, 0.0, 0.0)),
         PP_CONFIG,
         () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
         this);
-    Pathfinding.setPathfinder(new LocalADStarAK());
-    PathPlannerLogging.setLogActivePathCallback(
-        (activePath) -> {
-          Logger.recordOutput("Odometry/Trajectory", activePath.toArray(Pose2d[]::new));
-        });
-    PathPlannerLogging.setLogTargetPoseCallback(
-        (targetPose) -> {
-          Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
-        });
 
-    // Configure SysId
-    sysId =
+    Pathfinding.setPathfinder(new LocalADStarAK());
+
+    PathPlannerLogging.setLogActivePathCallback(
+        (activePath) -> Logger.recordOutput("Odometry/Trajectory", activePath.toArray(Pose2d[]::new)));
+
+    PathPlannerLogging.setLogTargetPoseCallback(
+        (targetPose) -> Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose));
+
+    hasPathPlannerBeenConfigured = true;
+  }
+
+  private void configureSysIdRoutineIfNeeded() {
+    if (sysIdRoutine != null) {
+      return;
+    }
+
+    sysIdRoutine =
         new SysIdRoutine(
             new SysIdRoutine.Config(
                 null,
@@ -149,18 +179,28 @@ public class Drive extends SubsystemBase {
                 null,
                 (state) -> Logger.recordOutput("Drive/SysIdState", state.toString())),
             new SysIdRoutine.Mechanism(
-                (voltage) -> runCharacterization(voltage.in(Volts)), null, this));
+                (voltage) -> runCharacterization(voltage.in(Volts)),
+                null,
+                this));
   }
 
   @Override
   public void periodic() {
-    odometryLock.lock(); // Prevents odometry updates while reading data
-    gyroIO.updateInputs(gyroInputs);
-    Logger.processInputs("Drive/Gyro", gyroInputs);
-    for (var module : modules) {
-      module.periodic();
+    if (!odometryThreadStarted) {
+      PhoenixOdometryThread.getInstance().start();
+      odometryThreadStarted = true;
     }
-    odometryLock.unlock();
+
+    odometryLock.lock();
+      try {
+          // Prevents odometry updates while reading data
+          gyroIO.updateInputs(gyroInputs);
+          Logger.processInputs("Drive/Gyro", gyroInputs);
+          for (var module : modules) {
+              module.periodic();
+          } } finally {
+          odometryLock.unlock();
+      }
 
     // Stop moving when disabled
     if (DriverStation.isDisabled()) {
@@ -208,7 +248,7 @@ public class Drive extends SubsystemBase {
     }
 
     // Update gyro alert
-    gyroDisconnectedAlert.set(!gyroInputs.connected && DriveConstants.currentMode != Mode.SIM);
+    gyroDisconnectedAlert.set(!gyroInputs.connected && DriveConstants.CURRENT_MODE != Mode.SIM);
   }
 
   /**
@@ -262,14 +302,17 @@ public class Drive extends SubsystemBase {
 
   /** Returns a command to run a quasistatic test in the specified direction. */
   public Command sysIdQuasistatic(SysIdRoutine.Direction direction) {
+    configureSysIdRoutineIfNeeded();
     return run(() -> runCharacterization(0.0))
         .withTimeout(1.0)
-        .andThen(sysId.quasistatic(direction));
+        .andThen(sysIdRoutine.quasistatic(direction));
   }
 
-  /** Returns a command to run a dynamic test in the specified direction. */
   public Command sysIdDynamic(SysIdRoutine.Direction direction) {
-    return run(() -> runCharacterization(0.0)).withTimeout(1.0).andThen(sysId.dynamic(direction));
+    configureSysIdRoutineIfNeeded();
+    return run(() -> runCharacterization(0.0))
+        .withTimeout(1.0)
+        .andThen(sysIdRoutine.dynamic(direction));
   }
 
   /** Returns the module states (turn angles and drive velocities) for all of the modules. */

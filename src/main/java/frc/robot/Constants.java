@@ -1,12 +1,19 @@
 package frc.robot;
 
+import java.util.List;
+
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.apriltag.AprilTagFields;
+import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.wpilibj.RobotBase;
+import frc.SuperSubsystem.SuperVision.VisionEntries;
+import frc.SuperSubsystem.SuperVision.VisionEnums;
 
 public class Constants {
 
     public static final class DriveConstants{
-        public static final Mode simMode = Mode.SIM;
-        public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
+        public static final Mode SIM_MODE = Mode.SIM;
+        public static final Mode CURRENT_MODE = RobotBase.isReal() ? Mode.REAL : SIM_MODE;
 
         public static enum Mode {
             /** Running on a real robot. */
@@ -74,14 +81,42 @@ public class Constants {
         public static final double MINIMUM_HORIZONTAL_DISTANCE_METERS = 0.1;
     }
 
-    public static final class VisionConstants {
-        public static final double maximumAmbiguityForSingleTag = 0.30;
-        public static final double maximumAbsoluteZErrorMeters = 0.75;
+        public static final class VisionConstants {
 
-        public static final double linearStdDevBaselineMeters = 0.02;
-        public static final double angularStdDevBaselineRadians = 0.06;
+        public static final AprilTagFieldLayout aprilTagFieldLayout = FieldCosntants.kTagLayout;
 
-        public static final double[] cameraStandardDeviationFactors = new double[] { 1.0, 1.0 };
+        public static final double FIELD_LENGTH_METERS = FieldCosntants.FIELD_LENGTH_METERS;
+        public static final double FIELD_WIDTH_METERS = FieldCosntants.FIELD_WIDTH_METERS;
+
+        @SuppressWarnings("null")
+        public static final List<VisionEntries.CameraSpecifications> cameraSpecificationsList =
+                List.of(
+                        new VisionEntries.CameraSpecifications(
+                                "FrontTagCam",
+                                /* cameraToRobotTransform3d */ new Transform3d(),
+                                VisionEnums.PoseEstimateNoiseLevel.MEDIUM,
+                                /* cameraConfidenceMultiplier */ 1.0
+                        )
+                        // Agrega más cámaras aquí...
+                );
+
+        public static final double MAXIMUM_AMBIGUITY_FOR_SINGLE_TAG = 0.20;
+        public static final double MAXIMUM_Z_ERROR_METERS = 0.25;
+        public static final double MAXIMUM_OBSERVATION_AGE_SECONDS = 0.35;
+
+        public static final double MAXIMUM_DISTANCE_FOR_SINGLE_TAG_METERS = 4.0;
+        public static final double MAXIMUM_DISTANCE_FOR_MULTI_TAG_METERS = 6.0;
+        public static final double MAXIMUM_YAW_RATE_RADIANS_PER_SECOND = 4.0;
+
+        public static final double MAXIMUM_LINEAR_STANDARD_DEVIATION_METERS = 2.0;
+        public static final double MAXIMUM_ANGULAR_STANDARD_DEVIATION_RADIANS = 3.0;
+    }
+
+    public static final class FieldCosntants{
+        
+        public static final AprilTagFieldLayout kTagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
+        public static final double FIELD_LENGTH_METERS = 16.54175;
+        public static final double FIELD_WIDTH_METERS = 8.0137;
 
     }
 

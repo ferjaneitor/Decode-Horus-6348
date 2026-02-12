@@ -7,7 +7,10 @@
 
 package frc.robot;
 
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+
 import com.pathplanner.lib.auto.AutoBuilder;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.GenericHID;
@@ -25,8 +28,6 @@ import frc.robot.Drive.Gyro.GyroIOPigeon2;
 import frc.robot.Drive.SwerveModule.ModuleIO;
 import frc.robot.Drive.SwerveModule.ModuleIOSim;
 import frc.robot.Drive.SwerveModule.ModuleIOTalonFX;
-
-import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -46,43 +47,32 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
-    switch (DriveConstants.currentMode) {
-      case REAL:
-        // Real robot, instantiate hardware IO implementations
-        // ModuleIOTalonFX is intended for modules with TalonFX drive, TalonFX turn, and
-        // a CANcoder
-        drive =
-            new Drive(
-                new GyroIOPigeon2(),
-                new ModuleIOTalonFX(TunerConstants.FrontLeft),
-                new ModuleIOTalonFX(TunerConstants.FrontRight),
-                new ModuleIOTalonFX(TunerConstants.BackLeft),
-                new ModuleIOTalonFX(TunerConstants.BackRight));
+      drive = switch (DriveConstants.CURRENT_MODE) {
+          case REAL -> new Drive(
+                  new GyroIOPigeon2(),
+                  new ModuleIOTalonFX(TunerConstants.FrontLeft),
+                  new ModuleIOTalonFX(TunerConstants.FrontRight),
+                  new ModuleIOTalonFX(TunerConstants.BackLeft),
+                  new ModuleIOTalonFX(TunerConstants.BackRight));
+          case SIM -> new Drive(
+                  new GyroIO() {},
+                  new ModuleIOSim(TunerConstants.FrontLeft),
+                  new ModuleIOSim(TunerConstants.FrontRight),
+                  new ModuleIOSim(TunerConstants.BackLeft),
+                  new ModuleIOSim(TunerConstants.BackRight));
+          default -> new Drive(
+                  new GyroIO() {},
+                  new ModuleIO() {},
+                  new ModuleIO() {},
+                  new ModuleIO() {},
+                  new ModuleIO() {});
+      }; // Real robot, instantiate hardware IO implementations
+      // ModuleIOTalonFX is intended for modules with TalonFX drive, TalonFX turn, and
+      // a CANcoder
+      // Sim robot, instantiate physics sim IO implementations
+      // Replayed robot, disable IO implementations
 
-        break;
-
-      case SIM:
-        // Sim robot, instantiate physics sim IO implementations
-        drive =
-            new Drive(
-                new GyroIO() {},
-                new ModuleIOSim(TunerConstants.FrontLeft),
-                new ModuleIOSim(TunerConstants.FrontRight),
-                new ModuleIOSim(TunerConstants.BackLeft),
-                new ModuleIOSim(TunerConstants.BackRight));
-        break;
-
-      default:
-        // Replayed robot, disable IO implementations
-        drive =
-            new Drive(
-                new GyroIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {});
-        break;
-    }
+      drive.initializeIfNeeded();
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());

@@ -5,7 +5,6 @@ import java.util.Arrays;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
 
-import edu.wpi.first.math.geometry.Pose3d;
 import frc.SuperSubsystem.SuperVision.VisionIO;
 
 public class VisionIOInputsAutoLogged extends VisionIO.VisionIOInputs implements LoggableInputs, Cloneable {
@@ -52,7 +51,7 @@ public class VisionIOInputsAutoLogged extends VisionIO.VisionIOInputs implements
     }
 
     @Override
-    public VisionIOInputsAutoLogged clone() {
+    public VisionIOInputsAutoLogged clone() throws CloneNotSupportedException {
         VisionIOInputsAutoLogged copy;
         try {
             copy = (VisionIOInputsAutoLogged) super.clone();
