@@ -19,7 +19,10 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.SuperSubsystem.SuperVision.VisionStandardDeviationModel;
 import frc.robot.Constants.DriveConstants;
+import frc.robot.Constants.FieldCosntants;
+import frc.robot.Constants.VisionConstants;
 import frc.robot.Drive.Drive;
 import frc.robot.Drive.DriveCommands;
 import frc.robot.Drive.Generated.TunerConstants;
@@ -28,6 +31,8 @@ import frc.robot.Drive.Gyro.GyroIOPigeon2;
 import frc.robot.Drive.SwerveModule.ModuleIO;
 import frc.robot.Drive.SwerveModule.ModuleIOSim;
 import frc.robot.Drive.SwerveModule.ModuleIOTalonFX;
+import frc.robot.Vision.VisionHardwareFactoryImpl;
+import frc.robot.Vision.VisionSubsystem;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -36,43 +41,85 @@ import frc.robot.Drive.SwerveModule.ModuleIOTalonFX;
  * subsystems, commands, and button mappings) should be declared here.
  */
 public class RobotContainer {
-  // Subsystems
-  private final Drive drive;
+    // Subsystems
+    private final Drive drive;
 
-  // Controller
-  private final CommandXboxController controller = new CommandXboxController(0);
+    // Controller
+    private final CommandXboxController controller = new CommandXboxController(0);
 
-  // Dashboard inputs
-  private final LoggedDashboardChooser<Command> autoChooser;
+    private final VisionStandardDeviationModel visionStandardDeviationModel =
+        new VisionStandardDeviationModel(
+            VisionConstants.MAXIMUM_AMBIGUITY_FOR_SINGLE_TAG,
+            VisionConstants.MAXIMUM_Z_ERROR_METERS,
+            VisionConstants.MAXIMUM_OBSERVATION_AGE_SECONDS,
+            VisionConstants.MAXIMUM_DISTANCE_FOR_SINGLE_TAG_METERS,
+            VisionConstants.MAXIMUM_DISTANCE_FOR_MULTI_TAG_METERS,
+            VisionConstants.MAXIMUM_YAW_RATE_RADIANS_PER_SECOND,
+            VisionConstants.MAXIMUM_LINEAR_STANDARD_DEVIATION_METERS,
+            VisionConstants.MAXIMUM_ANGULAR_STANDARD_DEVIATION_RADIANS
+        ); // Placeholder values, tune based on your vision system's performance
 
-  /** The container for the robot. Contains subsystems, OI devices, and commands. */
-  public RobotContainer() {
-      drive = switch (DriveConstants.CURRENT_MODE) {
-          case REAL -> new Drive(
-                  new GyroIOPigeon2(),
-                  new ModuleIOTalonFX(TunerConstants.FrontLeft),
-                  new ModuleIOTalonFX(TunerConstants.FrontRight),
-                  new ModuleIOTalonFX(TunerConstants.BackLeft),
-                  new ModuleIOTalonFX(TunerConstants.BackRight));
-          case SIM -> new Drive(
-                  new GyroIO() {},
-                  new ModuleIOSim(TunerConstants.FrontLeft),
-                  new ModuleIOSim(TunerConstants.FrontRight),
-                  new ModuleIOSim(TunerConstants.BackLeft),
-                  new ModuleIOSim(TunerConstants.BackRight));
-          default -> new Drive(
-                  new GyroIO() {},
-                  new ModuleIO() {},
-                  new ModuleIO() {},
-                  new ModuleIO() {},
-                  new ModuleIO() {});
-      }; // Real robot, instantiate hardware IO implementations
-      // ModuleIOTalonFX is intended for modules with TalonFX drive, TalonFX turn, and
-      // a CANcoder
-      // Sim robot, instantiate physics sim IO implementations
-      // Replayed robot, disable IO implementations
+    private final VisionSubsystem visionSubsystem;
 
-      drive.initializeIfNeeded();
+    private final VisionHardwareFactoryImpl visionHardwareFactory;
+
+    // Dashboard inputs
+    private final LoggedDashboardChooser<Command> autoChooser;
+
+    /** The container for the robot. Contains subsystems, OI devices, and commands. */
+    public RobotContainer() {
+        drive = switch (DriveConstants.CURRENT_MODE) {
+            case REAL -> new Drive(
+                    new GyroIOPigeon2(),
+                    new ModuleIOTalonFX(TunerConstants.FrontLeft),
+                    new ModuleIOTalonFX(TunerConstants.FrontRight),
+                    new ModuleIOTalonFX(TunerConstants.BackLeft),
+                    new ModuleIOTalonFX(TunerConstants.BackRight));
+            case SIM -> new Drive(
+                    new GyroIO() {},
+                    new ModuleIOSim(TunerConstants.FrontLeft),
+                    new ModuleIOSim(TunerConstants.FrontRight),
+                    new ModuleIOSim(TunerConstants.BackLeft),
+                    new ModuleIOSim(TunerConstants.BackRight));
+            default -> new Drive(
+                    new GyroIO() {},
+                    new ModuleIO() {},
+                    new ModuleIO() {},
+                    new ModuleIO() {},
+                    new ModuleIO() {});
+        }; // Real robot, instantiate hardware IO implementations
+        // ModuleIOTalonFX is intended for modules with TalonFX drive, TalonFX turn, and
+        // a CANcoder
+        // Sim robot, instantiate physics sim IO implementations
+        // Replayed robot, disable IO implementations
+
+    drive.initializeIfNeeded();
+
+    
+
+    VisionSubsystem.VisionPoseMeasurementConsumer visionPoseMeasurementConsumer =
+            (visionRobotPose, timestampSeconds, visionMeasurementStandardDeviations) -> {
+              // Ajusta este método al nombre real de tu Drive
+              drive.addVisionMeasurement(visionRobotPose, timestampSeconds, visionMeasurementStandardDeviations);
+            };
+
+    visionHardwareFactory =
+        switch (DriveConstants.CURRENT_MODE) {
+        case REAL -> new VisionHardwareFactoryImpl(drive::getPose, false);
+        case SIM -> new VisionHardwareFactoryImpl(drive::getPose, true);
+        default -> new VisionHardwareFactoryImpl(drive::getPose, false);
+        };
+
+    visionSubsystem = new VisionSubsystem(
+        FieldCosntants.kTagLayout, 
+        FieldCosntants.FIELD_LENGTH_METERS,
+        FieldCosntants.FIELD_WIDTH_METERS, 
+        () -> drive.getPose(), 
+        () -> drive.getYawRateRadiansPerSecond(), 
+        visionPoseMeasurementConsumer, 
+        visionStandardDeviationModel, 
+        VisionConstants.cameraSpecificationsList, 
+        visionHardwareFactory);
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
@@ -95,22 +142,34 @@ public class RobotContainer {
 
     // Configure the button bindings
     configureButtonBindings();
-  }
+    }
 
-  /**
-   * Use this method to define your button->command mappings. Buttons can be created by
-   * instantiating a {@link GenericHID} or one of its subclasses ({@link
-   * edu.wpi.first.wpilibj.Joystick} or {@link XboxController}), and then passing it to a {@link
-   * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
-   */
-  private void configureButtonBindings() {
+    /**
+     * Use this method to define your button->command mappings. Buttons can be created by
+     * instantiating a {@link GenericHID} or one of its subclasses ({@link
+     * edu.wpi.first.wpilibj.Joystick} or {@link XboxController}), and then passing it to a {@link
+     * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
+     */
+    private void configureButtonBindings() {
     // Default command, normal field-relative drive
+    // drive.setDefaultCommand(
+    //     DriveCommands.joystickDrive(
+    //         drive,
+    //         () -> -controller.getLeftY(),
+    //         () -> -controller.getLeftX(),
+    //         () -> -controller.getRightX())
+    //     );
+
     drive.setDefaultCommand(
-        DriveCommands.joystickDrive(
-            drive,
+        DriveCommands.joystickDriveWithVisionAim(
+            drive, 
+            visionSubsystem, 
+            () -> controller.rightBumper().getAsBoolean(), // Auto-aim while right bumper is held
             () -> -controller.getLeftY(),
             () -> -controller.getLeftX(),
-            () -> -controller.getRightX()));
+            () -> -controller.getRightX()
+        )
+    );
 
     // Lock to 0° when A button is held
     controller
@@ -135,14 +194,14 @@ public class RobotContainer {
                             new Pose2d(drive.getPose().getTranslation(), Rotation2d.kZero)),
                     drive)
                 .ignoringDisable(true));
-  }
+    }
 
-  /**
-   * Use this to pass the autonomous command to the main {@link Robot} class.
-   *
-   * @return the command to run in autonomous
-   */
-  public Command getAutonomousCommand() {
+    /**
+     * Use this to pass the autonomous command to the main {@link Robot} class.
+     *
+     * @return the command to run in autonomous
+     */
+    public Command getAutonomousCommand() {
     return autoChooser.get();
-  }
+    }
 }

@@ -345,7 +345,7 @@ public class Drive extends SubsystemBase {
 
   /** Returns the measured chassis speeds of the robot. */
   @AutoLogOutput(key = "SwerveChassisSpeeds/Measured")
-  private ChassisSpeeds getChassisSpeeds() {
+  public ChassisSpeeds getChassisSpeeds() {
     return kinematics.toChassisSpeeds(getModuleStates());
   }
 
@@ -372,6 +372,26 @@ public class Drive extends SubsystemBase {
   public Pose2d getPose() {
     return poseEstimator.getEstimatedPosition();
   }
+
+    /** Returns the measured yaw rate of the robot in radians per second. */
+  @AutoLogOutput(key = "Odometry/YawRateRadPerSec")
+  public double getYawRateRadiansPerSecond() {
+    if (gyroInputs.connected) {
+      return gyroInputs.yawVelocityRadPerSec;
+    }
+
+    // Fallback: derive from module states if gyro is disconnected
+    ChassisSpeeds measuredChassisSpeeds = getChassisSpeeds();
+    return measuredChassisSpeeds.omegaRadiansPerSecond;
+  }
+
+    /** Returns the measured chassis speeds of the robot. */
+  @AutoLogOutput(key = "SwerveChassisSpeeds/MeasuredPublic")
+  public ChassisSpeeds getMeasuredChassisSpeeds() {
+    return getChassisSpeeds();
+  }
+
+
 
   /** Returns the current odometry rotation. */
   public Rotation2d getRotation() {

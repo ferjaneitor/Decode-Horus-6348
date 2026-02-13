@@ -51,7 +51,7 @@ public class VisionIOPhotonVision implements VisionIO {
     @Override
     public void updateInputs(VisionIOInputs inputs) {
         inputs.cameraConnected = photonCamera.isConnected();
-        inputs.photonPoseEstimatorEnabled = true;
+        inputs.photonPoseEstimatorEnabled = photonPoseEstimator != null;
 
         List<PhotonPipelineResult> unreadPipelineResults = photonCamera.getAllUnreadResults();
         if (unreadPipelineResults == null || unreadPipelineResults.isEmpty()) {

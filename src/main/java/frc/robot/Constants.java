@@ -195,11 +195,6 @@ public class Constants {
 
         public static final class VisionConstants {
 
-        public static final AprilTagFieldLayout aprilTagFieldLayout = FieldCosntants.kTagLayout;
-
-        public static final double FIELD_LENGTH_METERS = FieldCosntants.FIELD_LENGTH_METERS;
-        public static final double FIELD_WIDTH_METERS = FieldCosntants.FIELD_WIDTH_METERS;
-
         @SuppressWarnings("null")
         public static final List<VisionEntries.CameraSpecifications> cameraSpecificationsList =
                 List.of(

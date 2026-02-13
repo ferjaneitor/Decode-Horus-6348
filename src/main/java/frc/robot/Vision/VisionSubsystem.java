@@ -1,5 +1,10 @@
 package frc.robot.Vision;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
+
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -14,11 +19,6 @@ import frc.SuperSubsystem.SuperVision.VisionEntries;
 import frc.SuperSubsystem.SuperVision.VisionEnums;
 import frc.SuperSubsystem.SuperVision.VisionIO;
 import frc.SuperSubsystem.SuperVision.VisionStandardDeviationModel;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.function.Supplier;
 
 public class VisionSubsystem extends SubsystemBase {
 
@@ -182,6 +182,22 @@ public class VisionSubsystem extends SubsystemBase {
                     lastRejectReason
             );
         }
+    }
+
+    public double getLatestTargetYawRadians() {
+        // Si tienes varias cámaras, aquí decides cuál usar (por ejemplo la primera, o la que tenga target).
+        // Por ahora asumimos la primera.
+        if (loggedVisionCameraList.isEmpty()) {
+            return 0.0;
+        }
+        return loggedVisionCameraList.get(0).getVisionInputs().latestTargetYawRadians;
+    }
+
+    public boolean hasTarget() {
+        if (loggedVisionCameraList.isEmpty()) {
+            return false;
+        }
+        return loggedVisionCameraList.get(0).getVisionInputs().cameraConnected; // mejor: un flag real de "has targets"
     }
 
     public void setVisionEnabled(boolean visionEnabled) {

@@ -16,6 +16,8 @@ public class VisionIOInputsAutoLogged extends VisionIO.VisionIOInputs implements
         table.put("LatestTargetYawRadians", latestTargetYawRadians);
         table.put("LatestTargetPitchRadians", latestTargetPitchRadians);
 
+        table.put("PhotonPoseEstimatorEnabled", photonPoseEstimatorEnabled);
+
         table.put("ObservationTimestampsSeconds", observationTimestampsSeconds);
         table.put("ObservationRobotPoses", observationRobotPoses);
         table.put("ObservationAmbiguities", observationAmbiguities);
@@ -36,6 +38,8 @@ public class VisionIOInputsAutoLogged extends VisionIO.VisionIOInputs implements
         latestTargetYawRadians = table.get("LatestTargetYawRadians", latestTargetYawRadians);
         latestTargetPitchRadians = table.get("LatestTargetPitchRadians", latestTargetPitchRadians);
 
+        photonPoseEstimatorEnabled = table.get("PhotonPoseEstimatorEnabled", photonPoseEstimatorEnabled);
+
         observationTimestampsSeconds = table.get("ObservationTimestampsSeconds", observationTimestampsSeconds);
         observationRobotPoses = table.get("ObservationRobotPoses", observationRobotPoses);
         observationAmbiguities = table.get("ObservationAmbiguities", observationAmbiguities);
@@ -51,7 +55,7 @@ public class VisionIOInputsAutoLogged extends VisionIO.VisionIOInputs implements
     }
 
     @Override
-    public VisionIOInputsAutoLogged clone() throws CloneNotSupportedException {
+    public VisionIOInputsAutoLogged clone() throws CloneNotSupportedException  {
         VisionIOInputsAutoLogged copy;
         try {
             copy = (VisionIOInputsAutoLogged) super.clone();
@@ -63,6 +67,8 @@ public class VisionIOInputsAutoLogged extends VisionIO.VisionIOInputs implements
 
         copy.latestTargetYawRadians = this.latestTargetYawRadians;
         copy.latestTargetPitchRadians = this.latestTargetPitchRadians;
+
+        copy.photonPoseEstimatorEnabled = this.photonPoseEstimatorEnabled;
 
         copy.observationTimestampsSeconds =
                 Arrays.copyOf(this.observationTimestampsSeconds, this.observationTimestampsSeconds.length);

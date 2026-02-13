@@ -1,11 +1,11 @@
 package frc.SuperSubsystem.SuperVision;
 
-import edu.wpi.first.math.geometry.Pose3d;
-import frc.AutoLogger.VisionIOInputsAutoLogged;
+import java.util.Objects;
 
 import org.littletonrobotics.junction.Logger;
 
-import java.util.Objects;
+import edu.wpi.first.math.geometry.Pose3d;
+import frc.AutoLogger.VisionIOInputsAutoLogged;
 
 public final class LoggedVisionCamera {
 

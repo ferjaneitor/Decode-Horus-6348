@@ -7,6 +7,14 @@
 
 package frc.robot.Drive;
 
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
+
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.filter.SlewRateLimiter;
@@ -22,12 +30,7 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.function.DoubleSupplier;
-import java.util.function.Supplier;
+import frc.robot.Vision.VisionSubsystem;
 
 public class DriveCommands {
   private static final double DEADBAND = 0.1;
@@ -280,6 +283,77 @@ public class DriveCommands {
                               + " inches");
                     })));
   }
+
+  public static Command joystickDriveWithVisionAim(
+      Drive drive,
+      VisionSubsystem visionSubsystem,
+      BooleanSupplier isAutoAimActiveSupplier,
+      DoubleSupplier xSupplier,
+      DoubleSupplier ySupplier,
+      DoubleSupplier manualOmegaSupplier
+  ) {
+      ProfiledPIDController rotationController =
+          new ProfiledPIDController(
+              6.0, 0.0, 0.2,
+              new TrapezoidProfile.Constraints(
+                  drive.getMaxAngularSpeedRadPerSec(),
+                  drive.getMaxAngularSpeedRadPerSec() * 2.0
+              )
+          );
+
+      rotationController.enableContinuousInput(-Math.PI, Math.PI);
+
+      return Commands.run(
+          () -> {
+              // X/Y normal
+              Translation2d linearVelocity =
+                  getLinearVelocityFromJoysticks(xSupplier.getAsDouble(), ySupplier.getAsDouble());
+
+              // Decide omega
+              double omegaRadiansPerSecond;
+
+              boolean isAutoAimActive = isAutoAimActiveSupplier.getAsBoolean(); // aquí tú controlas con botón o lógica
+              boolean targetVisible = visionSubsystem.hasTarget();
+
+              if (isAutoAimActive && targetVisible) {
+                  double yawErrorRadians = visionSubsystem.getLatestTargetYawRadians();
+
+                  // Queremos yaw -> 0, o sea apuntar al target
+                  omegaRadiansPerSecond =
+                      rotationController.calculate(yawErrorRadians, 0.0);
+
+              } else {
+                  // fallback: joystick omega normal
+                  double manualOmega = MathUtil.applyDeadband(manualOmegaSupplier.getAsDouble(), 0.1);
+                  manualOmega = Math.copySign(manualOmega * manualOmega, manualOmega);
+                  omegaRadiansPerSecond = manualOmega * drive.getMaxAngularSpeedRadPerSec();
+              }
+
+              ChassisSpeeds speeds =
+                  new ChassisSpeeds(
+                      linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),
+                      linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
+                      omegaRadiansPerSecond
+                  );
+
+              boolean isFlipped =
+                  DriverStation.getAlliance().isPresent()
+                      && DriverStation.getAlliance().get() == Alliance.Red;
+
+              drive.runVelocity(
+                  ChassisSpeeds.fromFieldRelativeSpeeds(
+                      speeds,
+                      isFlipped
+                          ? drive.getRotation().plus(new Rotation2d(Math.PI))
+                          : drive.getRotation()
+                  )
+              );
+          },
+          drive
+      )
+      .beforeStarting(() -> rotationController.reset(0.0));
+  }
+
 
   private static class WheelRadiusCharacterizationState {
     double[] positions = new double[4];
