@@ -2,6 +2,7 @@ package frc.robot.Shooting;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.DriverStation;
 import frc.robot.Constants.ShootingConstants;
 
 public final class ShootingHelper {
@@ -21,9 +22,9 @@ public final class ShootingHelper {
     private final boolean isAndymarkTarget;
     private final boolean isRedAlliance;
 
-    public ShootingHelper(boolean isAndymarkTarget, boolean isRedAlliance) {
+    public ShootingHelper(boolean isAndymarkTarget) {
         this.isAndymarkTarget = isAndymarkTarget;
-        this.isRedAlliance = isRedAlliance;
+        this.isRedAlliance = DriverStation.getAlliance().get() == DriverStation.Alliance.Red;
 
         this.verticalVelocityMetersPerSecond =
             ShootingConstants.VERTICAL_LAUNCH_VELOCITY_METERS_PER_SECOND;

@@ -391,7 +391,20 @@ public class Drive extends SubsystemBase {
     return getChassisSpeeds();
   }
 
+  public ChassisSpeeds getRobotRelativeChassisSpeeds() {
+  // Uses measured module states (robot-relative)
+  return kinematics.toChassisSpeeds(getModuleStates());
+}
 
+  public ChassisSpeeds getFieldRelativeChassisSpeeds() {
+    ChassisSpeeds robotRelativeSpeeds = getRobotRelativeChassisSpeeds();
+    return ChassisSpeeds.fromRobotRelativeSpeeds(
+        robotRelativeSpeeds.vxMetersPerSecond,
+        robotRelativeSpeeds.vyMetersPerSecond,
+        robotRelativeSpeeds.omegaRadiansPerSecond,
+        getRotation()
+    );
+  } 
 
   /** Returns the current odometry rotation. */
   public Rotation2d getRotation() {

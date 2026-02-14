@@ -31,6 +31,7 @@ import frc.robot.Drive.Gyro.GyroIOPigeon2;
 import frc.robot.Drive.SwerveModule.ModuleIO;
 import frc.robot.Drive.SwerveModule.ModuleIOSim;
 import frc.robot.Drive.SwerveModule.ModuleIOTalonFX;
+import frc.robot.Shooting.ShootingHelper;
 import frc.robot.Vision.VisionHardwareFactoryImpl;
 import frc.robot.Vision.VisionSubsystem;
 
@@ -62,6 +63,8 @@ public class RobotContainer {
     private final VisionSubsystem visionSubsystem;
 
     private final VisionHardwareFactoryImpl visionHardwareFactory;
+
+    private final ShootingHelper shootingHelper = new ShootingHelper(FieldCosntants.isAndyMarkField); // Set to true if using Andymark target
 
     // Dashboard inputs
     private final LoggedDashboardChooser<Command> autoChooser;
@@ -164,6 +167,7 @@ public class RobotContainer {
         DriveCommands.joystickDriveWithVisionAim(
             drive, 
             visionSubsystem, 
+            shootingHelper,
             () -> controller.rightBumper().getAsBoolean(), // Auto-aim while right bumper is held
             () -> -controller.getLeftY(),
             () -> -controller.getLeftX(),

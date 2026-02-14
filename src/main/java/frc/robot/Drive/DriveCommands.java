@@ -30,24 +30,17 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.Constants.DriveConstants;
+import frc.robot.Shooting.ShootingHelper;
 import frc.robot.Vision.VisionSubsystem;
 
 public class DriveCommands {
-  private static final double DEADBAND = 0.1;
-  private static final double ANGLE_KP = 5.0;
-  private static final double ANGLE_KD = 0.4;
-  private static final double ANGLE_MAX_VELOCITY = 8.0;
-  private static final double ANGLE_MAX_ACCELERATION = 20.0;
-  private static final double FF_START_DELAY = 2.0; // Secs
-  private static final double FF_RAMP_RATE = 0.1; // Volts/Sec
-  private static final double WHEEL_RADIUS_MAX_VELOCITY = 0.25; // Rad/Sec
-  private static final double WHEEL_RADIUS_RAMP_RATE = 0.05; // Rad/Sec^2
 
   private DriveCommands() {}
 
   private static Translation2d getLinearVelocityFromJoysticks(double x, double y) {
     // Apply deadband
-    double linearMagnitude = MathUtil.applyDeadband(Math.hypot(x, y), DEADBAND);
+    double linearMagnitude = MathUtil.applyDeadband(Math.hypot(x, y), DriveConstants.DEADBAND);
     Rotation2d linearDirection = new Rotation2d(Math.atan2(y, x));
 
     // Square magnitude for more precise control
@@ -74,7 +67,7 @@ public class DriveCommands {
               getLinearVelocityFromJoysticks(xSupplier.getAsDouble(), ySupplier.getAsDouble());
 
           // Apply rotation deadband
-          double omega = MathUtil.applyDeadband(omegaSupplier.getAsDouble(), DEADBAND);
+          double omega = MathUtil.applyDeadband(omegaSupplier.getAsDouble(),  DriveConstants.DEADBAND);
 
           // Square rotation value for more precise control
           omega = Math.copySign(omega * omega, omega);
@@ -112,10 +105,10 @@ public class DriveCommands {
     // Create PID controller
     ProfiledPIDController angleController =
         new ProfiledPIDController(
-            ANGLE_KP,
+            DriveConstants.ANGLE_KP,
             0.0,
-            ANGLE_KD,
-            new TrapezoidProfile.Constraints(ANGLE_MAX_VELOCITY, ANGLE_MAX_ACCELERATION));
+            DriveConstants.ANGLE_KD,
+            new TrapezoidProfile.Constraints(DriveConstants.ANGLE_MAX_VELOCITY, DriveConstants.ANGLE_MAX_ACCELERATION));
     angleController.enableContinuousInput(-Math.PI, Math.PI);
 
     // Construct command
@@ -176,7 +169,7 @@ public class DriveCommands {
                   drive.runCharacterization(0.0);
                 },
                 drive)
-            .withTimeout(FF_START_DELAY),
+            .withTimeout(DriveConstants.FF_START_DELAY),
 
         // Start timer
         Commands.runOnce(timer::restart),
@@ -184,7 +177,7 @@ public class DriveCommands {
         // Accelerate and gather data
         Commands.run(
                 () -> {
-                  double voltage = timer.get() * FF_RAMP_RATE;
+                  double voltage = timer.get() * DriveConstants.FF_RAMP_RATE;
                   drive.runCharacterization(voltage);
                   velocitySamples.add(drive.getFFCharacterizationVelocity());
                   voltageSamples.add(voltage);
@@ -217,7 +210,7 @@ public class DriveCommands {
 
   /** Measures the robot's wheel radius by spinning in a circle. */
   public static Command wheelRadiusCharacterization(Drive drive) {
-    SlewRateLimiter limiter = new SlewRateLimiter(WHEEL_RADIUS_RAMP_RATE);
+    SlewRateLimiter limiter = new SlewRateLimiter(DriveConstants.WHEEL_RADIUS_RAMP_RATE);
     WheelRadiusCharacterizationState state = new WheelRadiusCharacterizationState();
 
     return Commands.parallel(
@@ -232,7 +225,7 @@ public class DriveCommands {
             // Turn in place, accelerating up to full speed
             Commands.run(
                 () -> {
-                  double speed = limiter.calculate(WHEEL_RADIUS_MAX_VELOCITY);
+                  double speed = limiter.calculate(DriveConstants.WHEEL_RADIUS_MAX_VELOCITY);
                   drive.runVelocity(new ChassisSpeeds(0.0, 0.0, speed));
                 },
                 drive)),
@@ -284,74 +277,85 @@ public class DriveCommands {
                     })));
   }
 
-  public static Command joystickDriveWithVisionAim(
+  public static  Command joystickDriveWithVisionAim(
       Drive drive,
       VisionSubsystem visionSubsystem,
+      ShootingHelper shootingHelper,
       BooleanSupplier isAutoAimActiveSupplier,
       DoubleSupplier xSupplier,
       DoubleSupplier ySupplier,
-      DoubleSupplier manualOmegaSupplier
+      DoubleSupplier thetaSupplier
   ) {
-      ProfiledPIDController rotationController =
+      ProfiledPIDController thetaController =
           new ProfiledPIDController(
-              6.0, 0.0, 0.2,
+              DriveConstants.ANGLE_KP, 
+              0.0, 
+              DriveConstants.ANGLE_KD,
               new TrapezoidProfile.Constraints(
                   drive.getMaxAngularSpeedRadPerSec(),
                   drive.getMaxAngularSpeedRadPerSec() * 2.0
               )
           );
 
-      rotationController.enableContinuousInput(-Math.PI, Math.PI);
+      thetaController.enableContinuousInput(-Math.PI, Math.PI);
 
       return Commands.run(
           () -> {
-              // X/Y normal
+              //update field pose and field speeds
+
+              Pose2d robotPose = drive.getPose();
+              ChassisSpeeds fieldSpeeds = drive.getFieldRelativeChassisSpeeds();
+              shootingHelper.update(
+                  robotPose,
+                  fieldSpeeds
+              );
+
+              // get x and y from joysticks
               Translation2d linearVelocity =
                   getLinearVelocityFromJoysticks(xSupplier.getAsDouble(), ySupplier.getAsDouble());
 
-              // Decide omega
-              double omegaRadiansPerSecond;
+              // calculate desired angle
 
-              boolean isAutoAimActive = isAutoAimActiveSupplier.getAsBoolean(); // aquí tú controlas con botón o lógica
-              boolean targetVisible = visionSubsystem.hasTarget();
+              double thethaRadiantsPerSecond;
 
-              if (isAutoAimActive && targetVisible) {
-                  double yawErrorRadians = visionSubsystem.getLatestTargetYawRadians();
+              boolean isAutoAimActive = isAutoAimActiveSupplier.getAsBoolean();
+              boolean isPossibleToShoot = shootingHelper.isPossibleToShoot();
 
-                  // Queremos yaw -> 0, o sea apuntar al target
-                  omegaRadiansPerSecond =
-                      rotationController.calculate(yawErrorRadians, 0.0);
+              if (isPossibleToShoot && isAutoAimActive) {
+                double desiredHeading = shootingHelper.getDesiredChassisHeadingRadians();
+                double currentHeading = drive.getRotation().getRadians();
 
+                thethaRadiantsPerSecond = thetaController.calculate(currentHeading, desiredHeading);
+                
               } else {
-                  // fallback: joystick omega normal
-                  double manualOmega = MathUtil.applyDeadband(manualOmegaSupplier.getAsDouble(), 0.1);
-                  manualOmega = Math.copySign(manualOmega * manualOmega, manualOmega);
-                  omegaRadiansPerSecond = manualOmega * drive.getMaxAngularSpeedRadPerSec();
+                  // Apply rotation deadband
+                thethaRadiantsPerSecond = MathUtil.applyDeadband(thetaSupplier.getAsDouble(),  DriveConstants.DEADBAND);
+
+                // Square rotation value for more precise control
+                thethaRadiantsPerSecond = Math.copySign(thethaRadiantsPerSecond * thethaRadiantsPerSecond, thethaRadiantsPerSecond);
               }
 
               ChassisSpeeds speeds =
                   new ChassisSpeeds(
                       linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),
                       linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
-                      omegaRadiansPerSecond
-                  );
+                      thethaRadiantsPerSecond * drive.getMaxAngularSpeedRadPerSec()
+                      );
 
               boolean isFlipped =
                   DriverStation.getAlliance().isPresent()
                       && DriverStation.getAlliance().get() == Alliance.Red;
-
+              
               drive.runVelocity(
                   ChassisSpeeds.fromFieldRelativeSpeeds(
                       speeds,
                       isFlipped
                           ? drive.getRotation().plus(new Rotation2d(Math.PI))
-                          : drive.getRotation()
-                  )
-              );
+                          : drive.getRotation()));
           },
           drive
       )
-      .beforeStarting(() -> rotationController.reset(0.0));
+      .beforeStarting(() -> thetaController.reset(drive.getRotation().getRadians()));
   }
 
 
