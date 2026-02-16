@@ -17,6 +17,8 @@ import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.units.measure.MomentOfInertia;
 import edu.wpi.first.units.measure.Voltage;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.RobotBase;
 import frc.SuperSubsystem.SuperVision.VisionEntries;
 import frc.SuperSubsystem.SuperVision.VisionEnums;
@@ -235,7 +237,14 @@ public class Constants {
         public static final double FIELD_LENGTH_METERS = 16.54175;
         public static final double FIELD_WIDTH_METERS = 8.0137;
 
-        public static final boolean isAndyMarkField = true ;
+        public static final boolean IS_ANDYMARK_FIELD = true ;
+
+        public static long[] getShootingValidTagIdentifiers() {
+            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+            return alliance == Alliance.Red
+                ? new long[] {2, 5, 8, 9, 10, 11}
+                : new long[] {18, 21, 24, 25, 26, 27};
+        }
 
     }
 

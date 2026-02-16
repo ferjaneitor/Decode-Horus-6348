@@ -1,7 +1,8 @@
 package frc.SuperSubsystem.SuperVision;
 
-import edu.wpi.first.math.geometry.Pose3d;
 import org.littletonrobotics.junction.AutoLog;
+
+import edu.wpi.first.math.geometry.Pose3d;
 
 public interface VisionIO {
 
@@ -29,6 +30,8 @@ public interface VisionIO {
         public long[] detectedTagIdentifiers = new long[0];
 
         public long framesPerSecond = 0;
+
+        public boolean hasTarget = false;
     }
 
     default void updateInputs(VisionIOInputs inputs) {}

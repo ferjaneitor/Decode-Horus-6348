@@ -19,6 +19,7 @@ import frc.SuperSubsystem.SuperVision.VisionEntries;
 import frc.SuperSubsystem.SuperVision.VisionEnums;
 import frc.SuperSubsystem.SuperVision.VisionIO;
 import frc.SuperSubsystem.SuperVision.VisionStandardDeviationModel;
+import frc.robot.Constants.FieldCosntants;
 
 public class VisionSubsystem extends SubsystemBase {
 
@@ -43,6 +44,8 @@ public class VisionSubsystem extends SubsystemBase {
     private final double fieldWidthMeters;
 
     private boolean visionEnabled = true;
+
+    private boolean isShootingTargetValidThisCycle = false;
 
     public VisionSubsystem(
             AprilTagFieldLayout aprilTagFieldLayout,
@@ -89,6 +92,10 @@ public class VisionSubsystem extends SubsystemBase {
         double currentRobotTimestampSeconds = Timer.getFPGATimestamp();
         double yawRateRadiansPerSecond = yawRateRadiansPerSecondSupplier.get();
 
+        boolean itsAValidShootingTarget = false;
+
+        long[] validShootingTagIds = FieldCosntants.getShootingValidTagIdentifiers();
+
         for (LoggedVisionCamera loggedVisionCamera : loggedVisionCameraList) {
             loggedVisionCamera.update(currentRobotPose3d);
 
@@ -98,7 +105,18 @@ public class VisionSubsystem extends SubsystemBase {
             for (long detectedTagIdentifier : visionInputs.detectedTagIdentifiers) {
                 Optional<Pose3d> fieldToTagPoseOptional = aprilTagFieldLayout.getTagPose((int) detectedTagIdentifier);
                 fieldToTagPoseOptional.ifPresent(visibleTagPoseList::add);
+                for (long validShootingTagId : validShootingTagIds) {
+                    if (detectedTagIdentifier == validShootingTagId) {
+                        itsAValidShootingTarget = true;
+                        break;
+                    }
+                }
+                if (itsAValidShootingTarget) {
+                    break;
+                }
             }
+
+            this.isShootingTargetValidThisCycle = itsAValidShootingTarget;
 
             int observationCount = visionInputs.observationTimestampsSeconds.length;
 
@@ -194,13 +212,19 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     public boolean hasTarget() {
-        if (loggedVisionCameraList.isEmpty()) {
-            return false;
+        for (LoggedVisionCamera loggedVisionCamera : loggedVisionCameraList) {
+            if (loggedVisionCamera.getVisionInputs().hasTarget) {
+                return true;
+            }
         }
-        return loggedVisionCameraList.get(0).getVisionInputs().cameraConnected; // mejor: un flag real de "has targets"
+        return false;
     }
 
     public void setVisionEnabled(boolean visionEnabled) {
         this.visionEnabled = visionEnabled;
+    }
+
+    public boolean itsAValidShootingTarget() {
+        return this.isShootingTargetValidThisCycle;
     }
 }

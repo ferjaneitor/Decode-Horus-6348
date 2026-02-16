@@ -316,30 +316,31 @@ public class DriveCommands {
 
               // calculate desired angle
 
-              double thethaRadiantsPerSecond;
+              double thetaRadiantsPerSecond;
 
               boolean isAutoAimActive = isAutoAimActiveSupplier.getAsBoolean();
               boolean isPossibleToShoot = shootingHelper.isPossibleToShoot();
+              boolean isAValidShootingTarget = visionSubsystem.itsAValidShootingTarget();
 
-              if (isPossibleToShoot && isAutoAimActive) {
-                double desiredHeading = shootingHelper.getDesiredChassisHeadingRadians();
-                double currentHeading = drive.getRotation().getRadians();
+                if (isPossibleToShoot && isAutoAimActive && isAValidShootingTarget) {
+                    double desiredHeadingRadians = shootingHelper.getDesiredChassisHeadingRadians();
+                    double currentHeadingRadians = drive.getRotation().getRadians();
+                    thetaRadiantsPerSecond = thetaController.calculate(currentHeadingRadians, desiredHeadingRadians);
+                } else {
+                    double manualThetaNormalized =
+                        MathUtil.applyDeadband(thetaSupplier.getAsDouble(), DriveConstants.DEADBAND);
+                        
+                    manualThetaNormalized =
+                        Math.copySign(manualThetaNormalized * manualThetaNormalized, manualThetaNormalized);
 
-                thethaRadiantsPerSecond = thetaController.calculate(currentHeading, desiredHeading);
-                
-              } else {
-                  // Apply rotation deadband
-                thethaRadiantsPerSecond = MathUtil.applyDeadband(thetaSupplier.getAsDouble(),  DriveConstants.DEADBAND);
-
-                // Square rotation value for more precise control
-                thethaRadiantsPerSecond = Math.copySign(thethaRadiantsPerSecond * thethaRadiantsPerSecond, thethaRadiantsPerSecond);
-              }
+                    thetaRadiantsPerSecond = manualThetaNormalized * drive.getMaxAngularSpeedRadPerSec();
+                }
 
               ChassisSpeeds speeds =
                   new ChassisSpeeds(
                       linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),
                       linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
-                      thethaRadiantsPerSecond * drive.getMaxAngularSpeedRadPerSec()
+                      thetaRadiantsPerSecond * drive.getMaxAngularSpeedRadPerSec()
                       );
 
               boolean isFlipped =

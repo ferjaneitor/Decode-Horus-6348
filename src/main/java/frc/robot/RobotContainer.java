@@ -64,7 +64,7 @@ public class RobotContainer {
 
     private final VisionHardwareFactoryImpl visionHardwareFactory;
 
-    private final ShootingHelper shootingHelper = new ShootingHelper(FieldCosntants.isAndyMarkField); // Set to true if using Andymark target
+    private final ShootingHelper shootingHelper = new ShootingHelper(FieldCosntants.IS_ANDYMARK_FIELD); // Set to true if using Andymark target
 
     // Dashboard inputs
     private final LoggedDashboardChooser<Command> autoChooser;

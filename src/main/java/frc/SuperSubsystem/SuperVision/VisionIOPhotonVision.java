@@ -1,9 +1,5 @@
 package frc.SuperSubsystem.SuperVision;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Transform3d;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -14,6 +10,10 @@ import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.targeting.PhotonPipelineResult;
+
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Transform3d;
 
 public class VisionIOPhotonVision implements VisionIO {
 
@@ -55,6 +55,8 @@ public class VisionIOPhotonVision implements VisionIO {
 
         List<PhotonPipelineResult> unreadPipelineResults = photonCamera.getAllUnreadResults();
         if (unreadPipelineResults == null || unreadPipelineResults.isEmpty()) {
+            inputs.hasTarget = false;
+
             inputs.observationTimestampsSeconds = new double[0];
             inputs.observationRobotPoses = new Pose3d[0];
             inputs.observationAmbiguities = new double[0];
@@ -65,6 +67,8 @@ public class VisionIOPhotonVision implements VisionIO {
             inputs.detectedTagIdentifiers = new long[0];
             return;
         }
+
+        boolean hasTargetThisCycle = false;
 
         Set<Integer> detectedTagIdentifierSet = new HashSet<>();
 
@@ -82,12 +86,11 @@ public class VisionIOPhotonVision implements VisionIO {
             }
 
             if (pipelineResult.hasTargets()) {
+                hasTargetThisCycle = true;
+
                 var bestTarget = pipelineResult.getBestTarget();
                 inputs.latestTargetYawRadians = Math.toRadians(bestTarget.getYaw());
                 inputs.latestTargetPitchRadians = Math.toRadians(bestTarget.getPitch());
-            } else {
-                inputs.latestTargetYawRadians = 0.0;
-                inputs.latestTargetPitchRadians = 0.0;
             }
 
             Optional<EstimatedRobotPose> estimatedRobotPoseOptional = estimateRobotPoseWithFallback(pipelineResult);
@@ -132,6 +135,14 @@ public class VisionIOPhotonVision implements VisionIO {
             observationTypeOrdinalList.add((long) observationType.ordinal());
         }
 
+        inputs.hasTarget = hasTargetThisCycle;
+
+        // Si nunca hubo targets este ciclo, al menos no “ensucies” aiming con valores viejos
+        if (!hasTargetThisCycle) {
+            inputs.latestTargetYawRadians = 0.0;
+            inputs.latestTargetPitchRadians = 0.0;
+        }
+
         inputs.observationTimestampsSeconds = timestampList.stream().mapToDouble(Double::doubleValue).toArray();
         inputs.observationRobotPoses = robotPoseList.toArray(Pose3d[]::new);
         inputs.observationAmbiguities = ambiguityList.stream().mapToDouble(Double::doubleValue).toArray();
@@ -152,7 +163,7 @@ public class VisionIOPhotonVision implements VisionIO {
         }
         inputs.detectedTagIdentifiers = detectedTagIdentifierArray;
     }
-
+    
     private Optional<EstimatedRobotPose> estimateRobotPoseWithFallback(PhotonPipelineResult pipelineResult) {
         Optional<EstimatedRobotPose> coprocessorMultiTagEstimate =
                 photonPoseEstimator.estimateCoprocMultiTagPose(pipelineResult);
