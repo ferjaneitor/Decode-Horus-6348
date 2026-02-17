@@ -18,11 +18,13 @@ public class ActivateIntakeCmd extends Command {
   @Override
   public void execute() {
     // Code to keep the intake active if necessary
+    m_intakeSubsystem.activateIntake();
   }
 
   @Override
   public void end(boolean interrupted) {
     // Code to stop the intake mechanism if necessary
+    m_intakeSubsystem.stopIntake();
   }
 
   @Override
