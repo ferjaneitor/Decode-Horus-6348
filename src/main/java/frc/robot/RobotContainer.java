@@ -32,6 +32,11 @@ import frc.robot.Drive.SwerveModule.ModuleIO;
 import frc.robot.Drive.SwerveModule.ModuleIOSim;
 import frc.robot.Drive.SwerveModule.ModuleIOTalonFX;
 import frc.robot.Shooting.ShootingHelper;
+import frc.robot.Shooting.Hood.HoodCmd;
+import frc.robot.Shooting.Hood.HoodIO;
+import frc.robot.Shooting.Hood.HoodIOSim;
+import frc.robot.Shooting.Hood.HoodIOTalonFx;
+import frc.robot.Shooting.Hood.HoodSubsystem;
 import frc.robot.Vision.VisionHardwareFactoryImpl;
 import frc.robot.Vision.VisionSubsystem;
 
@@ -65,6 +70,8 @@ public class RobotContainer {
     private final VisionHardwareFactoryImpl visionHardwareFactory;
 
     private final ShootingHelper shootingHelper = new ShootingHelper(FieldCosntants.IS_ANDYMARK_FIELD); // Set to true if using Andymark target
+
+    private final HoodSubsystem hoodSubsystem ;
 
     // Dashboard inputs
     private final LoggedDashboardChooser<Command> autoChooser;
@@ -123,6 +130,15 @@ public class RobotContainer {
         visionStandardDeviationModel, 
         VisionConstants.cameraSpecificationsList, 
         visionHardwareFactory);
+    
+    HoodIO hoodIo = switch (DriveConstants.CURRENT_MODE) {
+        case REAL -> new HoodIOTalonFx();
+        case SIM -> new HoodIOSim();
+        default -> new HoodIO() {};
+    };
+
+    hoodSubsystem = new HoodSubsystem(hoodIo);
+
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
@@ -198,6 +214,9 @@ public class RobotContainer {
                             new Pose2d(drive.getPose().getTranslation(), Rotation2d.kZero)),
                     drive)
                 .ignoringDisable(true));
+    
+    controller.rightTrigger().whileTrue(new HoodCmd(hoodSubsystem, visionSubsystem, shootingHelper));
+
     }
 
     /**

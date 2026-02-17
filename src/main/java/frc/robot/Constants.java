@@ -2,6 +2,8 @@ package frc.robot;
 
 import java.util.List;
 
+import com.ctre.phoenix6.configs.Slot0Configs;
+
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Transform3d;
@@ -189,6 +191,22 @@ public class Constants {
         public static final double TOTAL_TIME_SECONDS =
             TIME_GOING_UP + TIME_GOING_DOWN;
 
+        public static final double DEFAULT_HORIZONTAL_DISTANCE_METERS = 2.0;
+
+        public static final double DEFAULT_HORIZONTAL_VELOCITY_METERS_PER_SECOND =
+            DEFAULT_HORIZONTAL_DISTANCE_METERS / TOTAL_TIME_SECONDS;
+        
+        public static final double DEFAULT_HOOD_ANGLE_ROT =
+            Math.toRadians(90) - Math.atan2(
+                VERTICAL_LAUNCH_VELOCITY_METERS_PER_SECOND,
+                DEFAULT_HORIZONTAL_VELOCITY_METERS_PER_SECOND
+            );
+
+        public static final double DEFAULT_EXIT_SPEED_METERS_PER_SECOND = Math.hypot(
+            DEFAULT_HORIZONTAL_VELOCITY_METERS_PER_SECOND,
+            VERTICAL_LAUNCH_VELOCITY_METERS_PER_SECOND
+        );
+
         public static final double MAX_RPM = 6000;
         public static final double WHEEL_DIAMETER_METERS = 4 * 0.0254;
         public static final double WHEEL_CIRCUMFERENCE = WHEEL_DIAMETER_METERS * Math.PI;
@@ -245,6 +263,60 @@ public class Constants {
                 ? new long[] {2, 5, 8, 9, 10, 11}
                 : new long[] {18, 21, 24, 25, 26, 27};
         }
+
+    }
+
+    public static final class HoodConstants {
+
+        public static final int HOOD_ANGLE_TALON_ID = 1;
+        public static final int RIGHT_HOOD_PROPULSION_TALON_ID = 2;
+        public static final int LEFT_HOOD_PROPULSION_TALON_ID = 3;
+        public static final int INDEXER_TALON_ID = 0;
+
+        public static final Slot0Configs HOOD_ANGLE_SLOT_CONFIGS = new Slot0Configs()
+            .withKS(0.1)
+            .withKG(0.0)
+            .withKV(0.12)
+            .withKA(0.0)
+            .withKP(0.11)
+            .withKI(0.0)
+            .withKD(0.0);
+        public static final Slot0Configs RIGHT_HOOD_PROPULSION_SLOT_CONFIGS = new Slot0Configs()
+            .withKS(0.1)
+            .withKG(0.0)
+            .withKV(0.12)
+            .withKA(0.0)
+            .withKP(0.11)
+            .withKI(0.0)
+            .withKD(0.0);
+        public static final Slot0Configs LEFT_HOOD_PROPULSION_SLOT_CONFIGS = new Slot0Configs()
+            .withKS(0.1)
+            .withKG(0.0)
+            .withKV(0.12)
+            .withKA(0.0)
+            .withKP(0.11)
+            .withKI(0.0)
+            .withKD(0.0);
+        public static final Slot0Configs INDEXER_SLOT_CONFIGS = new Slot0Configs()
+            .withKS(0.1)
+            .withKG(0.0)
+            .withKV(0.12)
+            .withKA(0.0)
+            .withKP(0.11)
+            .withKI(0.0)
+            .withKD(0.0);
+
+        public static final double HOOD_SHOOTING_GEAR_RATIO = 1.0;
+        public static final double HOOD_ANGLE_GEAR_RATIO = 1.0;
+        public static final double CONVERSION_RATIO_FROM_METERS_TO_RPS = HOOD_SHOOTING_GEAR_RATIO / ShootingConstants.WHEEL_CIRCUMFERENCE ;
+        public static final double INDEXER_SPEED = 0.95;
+
+        public static final double HOOD_ANGLE_TOLERANCE_ROT = 0.01;
+        public static final double HOOD_SHOOTING_VELOCITY_TOLERANCE_RPS = 0.05;
+
+        public static final double CONVERSION_RATIO_RAD_TO_ROT = HOOD_ANGLE_GEAR_RATIO / (2 * Math.PI);
+
+        public static final double COMPLEMENTARY_ANGLE = Math.toRadians(90);
 
     }
 
