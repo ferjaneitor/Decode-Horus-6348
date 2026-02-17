@@ -20,6 +20,9 @@ public final class MotionProfiles {
         SparkMaxMotionState sample(double elapsedTimeSeconds);
     }
 
+    // =========================================================
+    // Trapezoidal profile
+    // =========================================================
     public static final class TrapezoidalMotionProfile implements MotionProfile {
         private final double startPosition;
         private final double endPosition;
@@ -45,10 +48,15 @@ public final class MotionProfiles {
             this.maximumVelocity = maximumVelocity;
             this.maximumAcceleration = maximumAcceleration;
 
-            Timing timing = Timing.calculate(startPosition, endPosition, maximumVelocity, maximumAcceleration);
+            Timing timing = Timing.calculate(
+                    Math.abs(endPosition - startPosition),
+                    maximumVelocity,
+                    maximumAcceleration
+            );
+
             this.accelerationTimeSeconds = timing.accelerationTimeSeconds;
             this.cruiseTimeSeconds = timing.cruiseTimeSeconds;
-            this.totalTimeSeconds = timing.totalTimeSeconds;
+            this.totalTimeSeconds = 2.0 * accelerationTimeSeconds + cruiseTimeSeconds;
         }
 
         @Override
@@ -58,7 +66,7 @@ public final class MotionProfiles {
 
         @Override
         public SparkMaxMotionState sample(double elapsedTimeSeconds) {
-            if (elapsedTimeSeconds <= 0) {
+            if (elapsedTimeSeconds <= 0.0) {
                 return new SparkMaxMotionState(startPosition, 0, 0, 0);
             }
 
@@ -70,7 +78,6 @@ public final class MotionProfiles {
             double velocity;
             double acceleration;
 
-            double decelerationTimeSeconds = accelerationTimeSeconds;
             double decelerationStartSeconds = accelerationTimeSeconds + cruiseTimeSeconds;
 
             if (elapsedTimeSeconds < accelerationTimeSeconds) {
@@ -81,9 +88,7 @@ public final class MotionProfiles {
                 double timeInCruiseSeconds = elapsedTimeSeconds - accelerationTimeSeconds;
 
                 double accelerationDistance = 0.5 * maximumAcceleration * accelerationTimeSeconds * accelerationTimeSeconds;
-                double cruiseVelocity = (cruiseTimeSeconds > 0)
-                        ? maximumVelocity
-                        : maximumAcceleration * accelerationTimeSeconds;
+                double cruiseVelocity = (cruiseTimeSeconds > 0.0) ? maximumVelocity : maximumAcceleration * accelerationTimeSeconds;
 
                 acceleration = 0.0;
                 velocity = cruiseVelocity;
@@ -92,11 +97,8 @@ public final class MotionProfiles {
                 double timeInDecelerationSeconds = elapsedTimeSeconds - decelerationStartSeconds;
 
                 double accelerationDistance = 0.5 * maximumAcceleration * accelerationTimeSeconds * accelerationTimeSeconds;
-                double cruiseDistance = (cruiseTimeSeconds > 0) ? maximumVelocity * cruiseTimeSeconds : 0.0;
-
-                double cruiseVelocity = (cruiseTimeSeconds > 0)
-                        ? maximumVelocity
-                        : maximumAcceleration * accelerationTimeSeconds;
+                double cruiseDistance = (cruiseTimeSeconds > 0.0) ? maximumVelocity * cruiseTimeSeconds : 0.0;
+                double cruiseVelocity = (cruiseTimeSeconds > 0.0) ? maximumVelocity : maximumAcceleration * accelerationTimeSeconds;
 
                 acceleration = -maximumAcceleration;
                 velocity = cruiseVelocity - maximumAcceleration * timeInDecelerationSeconds;
@@ -107,12 +109,6 @@ public final class MotionProfiles {
                         cruiseVelocity * timeInDecelerationSeconds -
                         0.5 * maximumAcceleration * timeInDecelerationSeconds * timeInDecelerationSeconds
                 );
-
-                if (timeInDecelerationSeconds > decelerationTimeSeconds) {
-                    position = endPosition;
-                    velocity = 0.0;
-                    acceleration = 0.0;
-                }
             }
 
             return new SparkMaxMotionState(
@@ -126,24 +122,15 @@ public final class MotionProfiles {
         private static final class Timing {
             private final double accelerationTimeSeconds;
             private final double cruiseTimeSeconds;
-            private final double totalTimeSeconds;
 
             private Timing(double accelerationTimeSeconds, double cruiseTimeSeconds) {
                 this.accelerationTimeSeconds = accelerationTimeSeconds;
                 this.cruiseTimeSeconds = cruiseTimeSeconds;
-                this.totalTimeSeconds = 2.0 * accelerationTimeSeconds + cruiseTimeSeconds;
             }
 
-            private static Timing calculate(
-                    double startPosition,
-                    double endPosition,
-                    double maximumVelocity,
-                    double maximumAcceleration
-            ) {
-                double distance = Math.abs(endPosition - startPosition);
-
-                if (maximumVelocity <= 0 || maximumAcceleration <= 0) {
-                    return new Timing(0, 0);
+            private static Timing calculate(double distance, double maximumVelocity, double maximumAcceleration) {
+                if (maximumVelocity <= 0.0 || maximumAcceleration <= 0.0) {
+                    return new Timing(0.0, 0.0);
                 }
 
                 double accelerationTimeSeconds = maximumVelocity / maximumAcceleration;
@@ -158,16 +145,21 @@ public final class MotionProfiles {
 
                 double cruiseDistance = distance - totalAccelerationDecelerationDistance;
                 double cruiseTimeSeconds = cruiseDistance / maximumVelocity;
+
                 return new Timing(accelerationTimeSeconds, cruiseTimeSeconds);
             }
         }
     }
 
+    // =========================================================
+    // S-curve (jerk-limited) profile
+    // =========================================================
     public static final class SCurveMotionProfile implements MotionProfile {
         private final double startPosition;
         private final double endPosition;
         private final double direction;
 
+        // kept for telemetry
         private final double maximumVelocity;
         private final double maximumAcceleration;
         private final double maximumJerk;
@@ -201,9 +193,9 @@ public final class MotionProfiles {
 
             ScurveTiming timing = ScurveTiming.calculate(
                     Math.abs(endPosition - startPosition),
-                    maximumVelocity,
-                    maximumAcceleration,
-                    maximumJerk
+                    this.maximumVelocity,
+                    this.maximumAcceleration,
+                    this.maximumJerk
             );
 
             phaseDurationSeconds[0] = timing.phase1TimeSeconds;
@@ -214,13 +206,13 @@ public final class MotionProfiles {
             phaseDurationSeconds[5] = timing.phase6TimeSeconds;
             phaseDurationSeconds[6] = timing.phase7TimeSeconds;
 
-            phaseJerk[0] = +maximumJerk;
+            phaseJerk[0] = +this.maximumJerk;
             phaseJerk[1] = 0.0;
-            phaseJerk[2] = -maximumJerk;
+            phaseJerk[2] = -this.maximumJerk;
             phaseJerk[3] = 0.0;
-            phaseJerk[4] = -maximumJerk;
+            phaseJerk[4] = -this.maximumJerk;
             phaseJerk[5] = 0.0;
-            phaseJerk[6] = +maximumJerk;
+            phaseJerk[6] = +this.maximumJerk;
 
             double cumulativeTimeSeconds = 0.0;
             for (int phaseIndex = 0; phaseIndex < 7; phaseIndex++) {
@@ -243,7 +235,7 @@ public final class MotionProfiles {
 
         @Override
         public SparkMaxMotionState sample(double elapsedTimeSeconds) {
-            if (elapsedTimeSeconds <= 0) {
+            if (elapsedTimeSeconds <= 0.0) {
                 return new SparkMaxMotionState(startPosition, 0, 0, 0);
             }
 
@@ -267,6 +259,14 @@ public final class MotionProfiles {
 
             return new SparkMaxMotionState(absolutePosition, absoluteVelocity, absoluteAcceleration, absoluteJerk);
         }
+
+        // Telemetry getters (optional but useful)
+        public double getMaximumVelocity() { return maximumVelocity; }
+        public double getMaximumAcceleration() { return maximumAcceleration; }
+        public double getMaximumJerk() { return maximumJerk; }
+        public double[] getPhaseDurationSecondsCopy() { return phaseDurationSeconds.clone(); }
+        public double[] getPhaseStartTimeSecondsCopy() { return phaseStartTimeSeconds.clone(); }
+        public double[] getPhaseJerkCopy() { return phaseJerk.clone(); }
 
         private int findPhaseIndex(double elapsedTimeSeconds) {
             for (int phaseIndex = 0; phaseIndex < 7; phaseIndex++) {
@@ -335,12 +335,11 @@ public final class MotionProfiles {
                     double maximumAcceleration,
                     double maximumJerk
             ) {
-                if (maximumVelocity <= 0 || maximumAcceleration <= 0 || maximumJerk <= 0) {
+                if (maximumVelocity <= 0.0 || maximumAcceleration <= 0.0 || maximumJerk <= 0.0) {
                     return new ScurveTiming(0, 0, 0, 0, 0, 0, 0);
                 }
 
                 double phase1TimeSeconds = maximumAcceleration / maximumJerk;
-
                 double velocityFromJerkPhase = 0.5 * maximumAcceleration * phase1TimeSeconds;
 
                 double phase2TimeSeconds;
@@ -357,7 +356,6 @@ public final class MotionProfiles {
                 }
 
                 SparkMaxMotionState stateAtStart = new SparkMaxMotionState(0, 0, 0, 0);
-
                 SparkMaxMotionState stateAfterPhase1 = integrateConstantJerk(stateAtStart, +maximumJerk, phase1TimeSeconds);
                 SparkMaxMotionState stateAfterPhase2 = integrateConstantJerk(stateAfterPhase1, 0.0, phase2TimeSeconds);
                 SparkMaxMotionState stateAfterPhase3 = integrateConstantJerk(stateAfterPhase2, -maximumJerk, phase3TimeSeconds);
@@ -373,7 +371,6 @@ public final class MotionProfiles {
 
                 if (totalAccelerationDecelerationDistance > distance) {
                     phase4TimeSeconds = 0.0;
-
                     double scaleFactor = Math.sqrt(distance / totalAccelerationDecelerationDistance);
                     adjustedPhase1TimeSeconds *= scaleFactor;
                     adjustedPhase2TimeSeconds *= scaleFactor;
@@ -384,18 +381,14 @@ public final class MotionProfiles {
                     phase4TimeSeconds = (cruiseVelocity > 1e-9) ? cruiseDistance / cruiseVelocity : 0.0;
                 }
 
-                double phase5TimeSeconds = adjustedPhase3TimeSeconds;
-                double phase6TimeSeconds = adjustedPhase2TimeSeconds;
-                double phase7TimeSeconds = adjustedPhase1TimeSeconds;
-
                 return new ScurveTiming(
                         adjustedPhase1TimeSeconds,
                         adjustedPhase2TimeSeconds,
                         adjustedPhase3TimeSeconds,
                         phase4TimeSeconds,
-                        phase5TimeSeconds,
-                        phase6TimeSeconds,
-                        phase7TimeSeconds
+                        adjustedPhase3TimeSeconds,
+                        adjustedPhase2TimeSeconds,
+                        adjustedPhase1TimeSeconds
                 );
             }
         }
