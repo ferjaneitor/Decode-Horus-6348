@@ -18,17 +18,19 @@ public class RetractIntakeCmd extends Command {
   @Override
   public void execute() {
     // Code to keep the intake retracted if necessary
+    m_intakeSubsystem.retractIntake();
   }
 
   @Override
   public void end(boolean interrupted) {
     // Code to stop the intake mechanism if necessary
+    m_intakeSubsystem.stopPivot();
   }
 
   @Override
   public boolean isFinished() {
     // Return true when the intake is fully retracted, or false if it should run indefinitely
-    return true; // Placeholder, change as needed
+    return m_intakeSubsystem.isIntakeRetracted(); // Check if the intake is fully retracted
   }
     
 }
