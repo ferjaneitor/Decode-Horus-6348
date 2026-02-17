@@ -53,6 +53,6 @@ public class HoodCmd extends Command {
 
     @Override
     public boolean isFinished() {
-        return false;
+        return true; // This command should run indefinitely until interrupted
     }
 }
