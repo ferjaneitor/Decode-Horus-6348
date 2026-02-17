@@ -3,7 +3,7 @@ package frc.SuperSubsystem.SuperMotors.SparkMax;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 
 import edu.wpi.first.math.MathUtil;
-
+import edu.wpi.first.math.controller.PIDController;
 import frc.SuperSubsystem.SuperMotors.SparkMax.SparkMaxEntrys.SparkMaxMotionState;
 import frc.SuperSubsystem.SuperMotors.SparkMax.SparkMaxEntrys.SuperSparkMaxConfig;
 import frc.robot.Constants;
@@ -21,6 +21,8 @@ public final class SuperSparkMax {
 
     private SparkMaxMotionState lastDesiredState;
     private MotionProfiles.MotionProfileType lastMotionProfileType;
+
+    private final PIDController pidController;
 
     public SuperSparkMax(int deviceCanIdentifier) {
         this(deviceCanIdentifier, DEFAULT_MOTOR_TYPE, new SuperSparkMaxConfig());
@@ -52,6 +54,8 @@ public final class SuperSparkMax {
 
         this.lastDesiredState = new SparkMaxMotionState(0, 0, 0, 0);
         this.lastMotionProfileType = MotionProfiles.MotionProfileType.TRAPEZOIDAL;
+
+        this.pidController = new PIDController(userConfiguration.kp, userConfiguration.ki, userConfiguration.kd);
     }
 
     public double getRelativeEncoderPosition() {
@@ -86,6 +90,12 @@ public final class SuperSparkMax {
 
     public SparkMaxMotionState getCurrentDesiredState() {
         return lastDesiredState;
+    }
+
+    public void PIDPositionControl(double desiredPosition){
+        double currentPosition = getRelativeEncoderPosition();
+        double output = pidController.calculate(currentPosition, desiredPosition);
+        setVoltage(output);
     }
 
     public void magicMotionPositionControl(double desiredPosition) {
