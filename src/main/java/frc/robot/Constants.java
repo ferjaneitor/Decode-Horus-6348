@@ -22,6 +22,8 @@ import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.RobotBase;
+import frc.SuperSubsystem.SuperMotors.SparkMax.SparkMaxEntrys;
+import frc.SuperSubsystem.SuperMotors.SparkMax.SparkMaxEntrys.SuperSparkMaxConfig;
 import frc.SuperSubsystem.SuperVision.VisionEntries;
 import frc.SuperSubsystem.SuperVision.VisionEnums;
 
@@ -320,6 +322,38 @@ public class Constants {
 
         public static final double COMPLEMENTARY_ANGLE = Math.toRadians(90);
 
+    }
+
+    public static final class IntakeConstants {
+
+        public static final int INTAKE_MOTOR_ID = 4;
+        public static final int PIVOT_INTAKE_MOTOR_ID = 5;
+
+        public static final double INTAKE_ACTIVATION_VOLTAGE = 12.0;
+        public static final double PIVOT_DEPLOY_POSITION_ROT = 1.0; // Example position for deployed intake
+        public static final double PIVOT_RETRACT_POSITION_ROT = 0.0; // Example position for retracted intake
+
+        public static final SparkMaxEntrys.SuperSparkMaxConfig INTAKE_MOTOR_CONFIG (){
+            SuperSparkMaxConfig IntakeMotorConfig = new SparkMaxEntrys.SuperSparkMaxConfig();
+
+            IntakeMotorConfig.kIsBrakeMode = true;
+            IntakeMotorConfig.kp = 0.5;
+            IntakeMotorConfig.ki = 0.0;
+            IntakeMotorConfig.kd = 0.0;
+
+            return IntakeMotorConfig;
+        }
+
+        public static final SparkMaxEntrys.SuperSparkMaxConfig PIVOT_INTAKE_MOTOR_CONFIG (){
+            SuperSparkMaxConfig PivotIntakeMotorConfig = new SparkMaxEntrys.SuperSparkMaxConfig();
+
+            PivotIntakeMotorConfig.kIsBrakeMode = true;
+            PivotIntakeMotorConfig.kp = 0.5;
+            PivotIntakeMotorConfig.ki = 0.0;
+            PivotIntakeMotorConfig.kd = 0.0;
+
+            return PivotIntakeMotorConfig;
+        }
     }
 
 }

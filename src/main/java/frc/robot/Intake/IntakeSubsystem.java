@@ -1,7 +1,10 @@
 package frc.robot.Intake;
 
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
+import frc.robot.Constants.IntakeConstants;
 
 public class IntakeSubsystem extends SubsystemBase {
 
@@ -12,8 +15,16 @@ public class IntakeSubsystem extends SubsystemBase {
   /** Creates a new IntakeSubsystem. */
   public IntakeSubsystem() {
 
-    this.intakeSuperSparkMax = new SuperSparkMax(0, null,null);
-    this.pivotIntakeSuperSparkMax = new SuperSparkMax(1, null,null);
+    this.intakeSuperSparkMax = new SuperSparkMax(
+      IntakeConstants.INTAKE_MOTOR_ID, 
+      MotorType.kBrushless,
+      IntakeConstants.INTAKE_MOTOR_CONFIG()
+    );
+    this.pivotIntakeSuperSparkMax = new SuperSparkMax(
+      IntakeConstants.PIVOT_INTAKE_MOTOR_ID, 
+      MotorType.kBrushless,
+      IntakeConstants.PIVOT_INTAKE_MOTOR_CONFIG()
+    );
 
     this.itsFullyDeployed = false;
     this.itsFullyRetracted = true;
@@ -21,7 +32,7 @@ public class IntakeSubsystem extends SubsystemBase {
   }
 
   public void activateIntake() {
-    this.intakeSuperSparkMax.setVoltage(12); // Example voltage to activate intake
+    this.intakeSuperSparkMax.setVoltage(IntakeConstants.INTAKE_ACTIVATION_VOLTAGE); // Example voltage to activate intake
   }
 
   public void stopIntake() {
@@ -29,15 +40,37 @@ public class IntakeSubsystem extends SubsystemBase {
   } 
 
   public void deployIntake() {
-    this.pivotIntakeSuperSparkMax.setVoltage(12); // Example voltage to deploy intake
+    if (getIntakePosition() < IntakeConstants.PIVOT_DEPLOY_POSITION_ROT) {
+      this.pivotIntakeSuperSparkMax.PIDPositionControl(IntakeConstants.PIVOT_DEPLOY_POSITION_ROT);
+    } else {
+      itsFullyDeployed = true;
+      itsFullyRetracted = false;
+    }
   }
 
   public void retractIntake() {
-    this.pivotIntakeSuperSparkMax.setVoltage(-12); // Example voltage to retract intake
+    if (getIntakePosition() > IntakeConstants.PIVOT_RETRACT_POSITION_ROT) {
+      this.pivotIntakeSuperSparkMax.PIDPositionControl(IntakeConstants.PIVOT_RETRACT_POSITION_ROT);
+    } else {
+      itsFullyDeployed = false;
+      itsFullyRetracted = true;
+    }
+  }
+
+  public void stopPivot() {
+    this.pivotIntakeSuperSparkMax.setVoltage(0); // Stop the pivot motor
   }
 
   public double getIntakePosition() {
     return this.pivotIntakeSuperSparkMax.getRelativeEncoderPosition(); // Get the position of the pivot
+  }
+
+  public boolean isIntakeDeployed() {
+    return itsFullyDeployed; // Check if the intake is deployed
+  }
+
+  public boolean isIntakeRetracted() {
+    return itsFullyRetracted; // Check if the intake is retracted
   }
     
 }
