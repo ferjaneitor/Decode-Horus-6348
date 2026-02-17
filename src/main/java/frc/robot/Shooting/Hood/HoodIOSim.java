@@ -19,7 +19,7 @@ import frc.robot.Drive.Generated.TunerConstants;
 
 public class HoodIOSim implements HoodIO {
 
-    private static final double simulationTimeStepSeconds = 0.02;
+    private static final double SIMULATION_TIME_STEP_SECONDS = 0.02;
 
     // TalonFX hardware objects (exist in sim too)
     private final TalonFX hoodAngleMotorTalonFx =
@@ -123,9 +123,9 @@ public class HoodIOSim implements HoodIO {
         rightWheelPhysicsSimulation.setInputVoltage(MathUtil.clamp(rightWheelAppliedVoltage, -12.0, 12.0));
         hoodAnglePhysicsSimulation.setInputVoltage(MathUtil.clamp(hoodAngleAppliedVoltage, -12.0, 12.0));
 
-        leftWheelPhysicsSimulation.update(simulationTimeStepSeconds);
-        rightWheelPhysicsSimulation.update(simulationTimeStepSeconds);
-        hoodAnglePhysicsSimulation.update(simulationTimeStepSeconds);
+        leftWheelPhysicsSimulation.update(SIMULATION_TIME_STEP_SECONDS);
+        rightWheelPhysicsSimulation.update(SIMULATION_TIME_STEP_SECONDS);
+        hoodAnglePhysicsSimulation.update(SIMULATION_TIME_STEP_SECONDS);
 
         // Convert physics state back into rotor units for TalonFX sim state
         double leftWheelRotorVelocityRotationsPerSecond =
