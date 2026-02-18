@@ -3,6 +3,7 @@ package frc.SuperSubsystem.SuperMotors.SparkMax;
 import com.revrobotics.PersistMode;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.ResetMode;
+import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
@@ -90,6 +91,25 @@ public final class SparkMaxSupport {
 
         public void stop() {
             sparkMaxController.stopMotor();
+        }
+        public SparkBase getSparkBase() {
+            return sparkMaxController;
+        }
+
+        public double getAppliedOutput() {
+            return sparkMaxController.getAppliedOutput();
+        }
+
+        public double getBusVoltage() {
+            return sparkMaxController.getBusVoltage();
+        }
+
+        public double getOutputCurrent() {
+            return sparkMaxController.getOutputCurrent();
+        }
+
+        public void setEncoderPosition(double position) {
+            relativeEncoder.setPosition(position);
         }
     }
 
@@ -204,5 +224,11 @@ public final class SparkMaxSupport {
 
             return desiredState;
         }
+
+        public double getProfileElapsedTimeSeconds() { return timeProvider.nowSeconds() - profileStartTimeSeconds; }
+        public double getProfileTotalTimeSeconds() { return activeMotionProfile != null ? activeMotionProfile.getTotalTimeSeconds() : 0.0; }
+
+        
     }
+    
 }

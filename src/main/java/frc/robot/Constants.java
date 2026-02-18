@@ -325,35 +325,65 @@ public class Constants {
     }
 
     public static final class IntakeConstants {
-
         public static final int INTAKE_MOTOR_ID = 4;
         public static final int PIVOT_INTAKE_MOTOR_ID = 5;
 
         public static final double INTAKE_ACTIVATION_VOLTAGE = 12.0;
-        public static final double PIVOT_DEPLOY_POSITION_ROT = 1.0; // Example position for deployed intake
-        public static final double PIVOT_RETRACT_POSITION_ROT = 0.0; // Example position for retracted intake
 
-        public static final SparkMaxEntrys.SuperSparkMaxConfig INTAKE_MOTOR_CONFIG (){
-            SuperSparkMaxConfig IntakeMotorConfig = new SparkMaxEntrys.SuperSparkMaxConfig();
+        public static final double PIVOT_DEPLOY_POSITION_ROT = 1.0;
+        public static final double PIVOT_RETRACT_POSITION_ROT = 0.0;
 
-            IntakeMotorConfig.kIsBrakeMode = true;
-            IntakeMotorConfig.kp = 0.5;
-            IntakeMotorConfig.ki = 0.0;
-            IntakeMotorConfig.kd = 0.0;
+        public static final double PIVOT_POSITION_TOLERANCE_ROT = 0.02;
+        public static final double PIVOT_POSITION_HYSTERESIS_ROT = 0.02;
 
-            return IntakeMotorConfig;
+        public static final boolean PIVOT_ENABLE_JERK_CONTROL = false;
+
+        // Motion profile constraints (rotations units)
+        public static final double PIVOT_PROFILE_MAX_VELOCITY_ROT_PER_SEC = 2.0;
+        public static final double PIVOT_PROFILE_MAX_ACCEL_ROT_PER_SEC2 = 6.0;
+        public static final double PIVOT_PROFILE_MAX_JERK_ROT_PER_SEC3 = 40.0;
+
+        // Roller sim
+        public static final double ROLLER_SIM_GEAR_REDUCTION = 1.0;
+        public static final double ROLLER_SIM_MOMENT_OF_INERTIA = 0.0005;
+
+        // Pivot sim (light arm)
+        public static final double PIVOT_SIM_GEAR_REDUCTION = 60.0;
+        public static final double PIVOT_SIM_MOMENT_OF_INERTIA = 0.002;
+        public static final double PIVOT_SIM_ARM_LENGTH_METERS = 0.25;
+        public static final double PIVOT_SIM_MIN_ANGLE_RADIANS = -0.2;
+        public static final double PIVOT_SIM_MAX_ANGLE_RADIANS = 1.8;
+        public static final double PIVOT_SIM_START_ANGLE_RADIANS = 0.0;
+
+        // Pivot sim PID
+        public static final double PIVOT_SIM_PID_P = 25.0;
+        public static final double PIVOT_SIM_PID_I = 0.0;
+        public static final double PIVOT_SIM_PID_D = 2.0;
+
+        public static final SparkMaxEntrys.SuperSparkMaxConfig INTAKE_MOTOR_CONFIG() {
+            SuperSparkMaxConfig config = new SparkMaxEntrys.SuperSparkMaxConfig();
+            config.kIsBrakeMode = true;
+            config.kp = 0.5;
+            config.ki = 0.0;
+            config.kd = 0.0;
+            return config;
         }
 
-        public static final SparkMaxEntrys.SuperSparkMaxConfig PIVOT_INTAKE_MOTOR_CONFIG (){
-            SuperSparkMaxConfig PivotIntakeMotorConfig = new SparkMaxEntrys.SuperSparkMaxConfig();
+        public static final SparkMaxEntrys.SuperSparkMaxConfig PIVOT_INTAKE_MOTOR_CONFIG() {
+            SuperSparkMaxConfig config = new SparkMaxEntrys.SuperSparkMaxConfig();
+            config.kIsBrakeMode = true;
+            config.kp = 0.5;
+            config.ki = 0.0;
+            config.kd = 0.0;
 
-            PivotIntakeMotorConfig.kIsBrakeMode = true;
-            PivotIntakeMotorConfig.kp = 0.5;
-            PivotIntakeMotorConfig.ki = 0.0;
-            PivotIntakeMotorConfig.kd = 0.0;
+            // para motion profile
+            config.CruiseVelocity = PIVOT_PROFILE_MAX_VELOCITY_ROT_PER_SEC;
+            config.TargetAcceleration = PIVOT_PROFILE_MAX_ACCEL_ROT_PER_SEC2;
+            config.TargetJerk = PIVOT_PROFILE_MAX_JERK_ROT_PER_SEC3;
 
-            return PivotIntakeMotorConfig;
+            return config;
         }
     }
+
 
 }

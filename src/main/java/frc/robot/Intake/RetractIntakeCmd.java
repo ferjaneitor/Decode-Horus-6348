@@ -18,7 +18,9 @@ public class RetractIntakeCmd extends Command {
   @Override
   public void execute() {
     // Code to keep the intake retracted if necessary
-    m_intakeSubsystem.retractIntake();
+    if (m_intakeSubsystem.isIntakeDeployed()) {
+      m_intakeSubsystem.retractIntake();
+    }
   }
 
   @Override

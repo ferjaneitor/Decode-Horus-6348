@@ -18,7 +18,9 @@ public class DeployIntakeCmd extends Command {
   @Override
   public void execute() {
     // Code to keep the intake deployed if necessary
-    m_intakeSubsystem.deployIntake();
+    if (!m_intakeSubsystem.isIntakeDeployed()) {
+      m_intakeSubsystem.deployIntake();
+    }
   }
 
   @Override

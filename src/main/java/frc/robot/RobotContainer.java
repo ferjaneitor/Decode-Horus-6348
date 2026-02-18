@@ -10,6 +10,8 @@ package frc.robot;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.revrobotics.spark.SparkLowLevel;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -19,9 +21,11 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
 import frc.SuperSubsystem.SuperVision.VisionStandardDeviationModel;
 import frc.robot.Constants.DriveConstants;
 import frc.robot.Constants.FieldCosntants;
+import frc.robot.Constants.IntakeConstants;
 import frc.robot.Constants.VisionConstants;
 import frc.robot.Drive.Drive;
 import frc.robot.Drive.DriveCommands;
@@ -31,6 +35,10 @@ import frc.robot.Drive.Gyro.GyroIOPigeon2;
 import frc.robot.Drive.SwerveModule.ModuleIO;
 import frc.robot.Drive.SwerveModule.ModuleIOSim;
 import frc.robot.Drive.SwerveModule.ModuleIOTalonFX;
+import frc.robot.Intake.IntakeIO;
+import frc.robot.Intake.IntakeIOSim;
+import frc.robot.Intake.IntakeIOSpark;
+import frc.robot.Intake.IntakeSubsystem;
 import frc.robot.Shooting.ShootingHelper;
 import frc.robot.Shooting.Hood.HoodCmd;
 import frc.robot.Shooting.Hood.HoodIO;
@@ -72,6 +80,8 @@ public class RobotContainer {
     private final ShootingHelper shootingHelper = new ShootingHelper(FieldCosntants.IS_ANDYMARK_FIELD); // Set to true if using Andymark target
 
     private final HoodSubsystem hoodSubsystem ;
+
+    private final IntakeSubsystem intakeSubsystem;
 
     // Dashboard inputs
     private final LoggedDashboardChooser<Command> autoChooser;
@@ -139,6 +149,16 @@ public class RobotContainer {
 
     hoodSubsystem = new HoodSubsystem(hoodIo);
 
+    IntakeIO intakeIo = switch (DriveConstants.CURRENT_MODE) {
+        case REAL -> new IntakeIOSpark(
+            new SuperSparkMax(IntakeConstants.INTAKE_MOTOR_ID, MotorType.kBrushless, IntakeConstants.INTAKE_MOTOR_CONFIG()), 
+            new SuperSparkMax(IntakeConstants.PIVOT_INTAKE_MOTOR_ID, MotorType.kBrushless, IntakeConstants.PIVOT_INTAKE_MOTOR_CONFIG())
+        );
+        case SIM -> new IntakeIOSim();
+        default -> new IntakeIO() {};
+    };
+
+    intakeSubsystem = new IntakeSubsystem(intakeIo);
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());

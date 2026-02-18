@@ -1,5 +1,6 @@
 package frc.SuperSubsystem.SuperMotors.SparkMax;
 
+import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 
 import edu.wpi.first.math.MathUtil;
@@ -22,7 +23,12 @@ public final class SuperSparkMax {
     private SparkMaxMotionState lastDesiredState;
     private MotionProfiles.MotionProfileType lastMotionProfileType;
 
-    private final PIDController pidController;
+    private final PIDController positionPidController;
+
+    // Telemetry (MA-style)
+    private double lastFeedforwardVolts = 0.0;
+    private double lastFeedbackVolts = 0.0;
+    private double lastTotalCommandedVolts = 0.0;
 
     public SuperSparkMax(int deviceCanIdentifier) {
         this(deviceCanIdentifier, DEFAULT_MOTOR_TYPE, new SuperSparkMaxConfig());
@@ -35,14 +41,15 @@ public final class SuperSparkMax {
     public SuperSparkMax(int deviceCanIdentifier, MotorType motorType, SuperSparkMaxConfig userConfiguration) {
         this.userConfiguration = userConfiguration;
 
-        SparkMaxSupport.SparkMaxConfigFactory sparkMaxConfigFactory = new SparkMaxSupport.SparkMaxConfigFactory();
+        SparkMaxSupport.SparkMaxConfigFactory configFactory = new SparkMaxSupport.SparkMaxConfigFactory();
         this.hardware = new SparkMaxSupport.SparkMaxHardware(
                 deviceCanIdentifier,
                 motorType,
-                sparkMaxConfigFactory.createFrom(userConfiguration)
+                configFactory.createFrom(userConfiguration)
         );
 
         this.feedforwardModel = new SparkMaxSupport.FeedforwardModel(userConfiguration);
+
         this.feedbackController = new SparkMaxSupport.FeedbackController(
                 userConfiguration.kp,
                 userConfiguration.ki,
@@ -55,7 +62,12 @@ public final class SuperSparkMax {
         this.lastDesiredState = new SparkMaxMotionState(0, 0, 0, 0);
         this.lastMotionProfileType = MotionProfiles.MotionProfileType.TRAPEZOIDAL;
 
-        this.pidController = new PIDController(userConfiguration.kp, userConfiguration.ki, userConfiguration.kd);
+        this.positionPidController = new PIDController(userConfiguration.kp, userConfiguration.ki, userConfiguration.kd);
+    }
+
+    // ---------- Hardware passthrough ----------
+    public SparkBase getSparkBase() {
+        return hardware.getSparkBase();
     }
 
     public double getRelativeEncoderPosition() {
@@ -77,77 +89,135 @@ public final class SuperSparkMax {
 
     public void stop() {
         hardware.stop();
+        lastFeedforwardVolts = 0.0;
+        lastFeedbackVolts = 0.0;
+        lastTotalCommandedVolts = 0.0;
     }
 
+    // ---------- Motion profile status ----------
     public void cancelProfile() {
         stop();
         motionProfileRunner.cancel();
+    }
+
+    public boolean isProfileActive() {
+        return motionProfileRunner.isActive();
     }
 
     public boolean isProfileFinished() {
         return !motionProfileRunner.isActive();
     }
 
+    public double getProfileElapsedTimeSeconds() {
+        return motionProfileRunner.getProfileElapsedTimeSeconds();
+    }
+
+    public double getProfileTotalTimeSeconds() {
+        return motionProfileRunner.getProfileTotalTimeSeconds();
+    }
+
+    // ---------- Telemetry getters ----------
     public SparkMaxMotionState getCurrentDesiredState() {
         return lastDesiredState;
     }
 
-    public void PIDPositionControl(double desiredPosition){
-        double currentPosition = getRelativeEncoderPosition();
-        double output = pidController.calculate(currentPosition, desiredPosition);
-        setVoltage(output);
+    public double getLastFeedforwardVolts() {
+        return lastFeedforwardVolts;
     }
 
-    public void magicMotionPositionControl(double desiredPosition) {
-        magicMotionPositionControl(desiredPosition, false);
+    public double getLastFeedbackVolts() {
+        return lastFeedbackVolts;
     }
 
-    public void magicMotionPositionControl(double desiredPosition, boolean enableJerkControl) {
+    public double getLastTotalCommandedVolts() {
+        return lastTotalCommandedVolts;
+    }
+
+    // ---------- Simple PID position hold ----------
+    public void PIDPositionControl(double desiredPositionRotations) {
+        double currentPositionRotations = getRelativeEncoderPosition();
+        double feedbackVoltage = positionPidController.calculate(currentPositionRotations, desiredPositionRotations);
+
+        lastDesiredState = new SparkMaxMotionState(desiredPositionRotations, 0.0, 0.0, 0.0);
+        lastFeedforwardVolts = 0.0;
+        lastFeedbackVolts = feedbackVoltage;
+        lastTotalCommandedVolts = MathUtil.clamp(feedbackVoltage, -MAXIMUM_BATTERY_VOLTAGE, MAXIMUM_BATTERY_VOLTAGE);
+
+        setVoltage(lastTotalCommandedVolts);
+    }
+
+    // ---------- Motion magic position ----------
+    public void magicMotionPositionControl(double desiredPositionRotations) {
+        magicMotionPositionControl(desiredPositionRotations, false);
+    }
+
+    public void magicMotionPositionControl(double desiredPositionRotations, boolean enableJerkControl) {
         MotionProfiles.MotionProfileType motionProfileType =
                 enableJerkControl ? MotionProfiles.MotionProfileType.S_CURVE : MotionProfiles.MotionProfileType.TRAPEZOIDAL;
 
-        double currentPosition = getRelativeEncoderPosition();
-        ensureProfileStartedIfNeeded(currentPosition, desiredPosition, motionProfileType, MotionProfiles.ProfileDomain.POSITION);
+        double currentPositionRotations = getRelativeEncoderPosition();
+
+        ensureProfileStartedIfNeeded(
+                currentPositionRotations,
+                desiredPositionRotations,
+                motionProfileType,
+                MotionProfiles.ProfileDomain.POSITION
+        );
 
         SparkMaxMotionState desiredState = motionProfileRunner.sampleNowOrZero();
         lastDesiredState = desiredState;
 
         double feedforwardVoltage = feedforwardModel.calculateVoltage(
-                currentPosition,
+                currentPositionRotations,
                 desiredState.velocity,
                 desiredState.acceleration
         );
 
-        double feedbackVoltage = feedbackController.calculatePositionFeedback(currentPosition, desiredState.position);
+        double feedbackVoltage = feedbackController.calculatePositionFeedback(currentPositionRotations, desiredState.position);
 
-        setVoltage(feedforwardVoltage + feedbackVoltage);
+        lastFeedforwardVolts = feedforwardVoltage;
+        lastFeedbackVolts = feedbackVoltage;
+        lastTotalCommandedVolts = MathUtil.clamp(feedforwardVoltage + feedbackVoltage, -MAXIMUM_BATTERY_VOLTAGE, MAXIMUM_BATTERY_VOLTAGE);
+
+        setVoltage(lastTotalCommandedVolts);
     }
 
-    public void magicMotionVelocityControl(double desiredVelocity) {
-        magicMotionVelocityControl(desiredVelocity, false);
+    // ---------- Motion magic velocity ----------
+    public void magicMotionVelocityControl(double desiredVelocityRotationsPerSecond) {
+        magicMotionVelocityControl(desiredVelocityRotationsPerSecond, false);
     }
 
-    public void magicMotionVelocityControl(double desiredVelocity, boolean enableJerkControl) {
+    public void magicMotionVelocityControl(double desiredVelocityRotationsPerSecond, boolean enableJerkControl) {
         MotionProfiles.MotionProfileType motionProfileType =
                 enableJerkControl ? MotionProfiles.MotionProfileType.S_CURVE : MotionProfiles.MotionProfileType.TRAPEZOIDAL;
 
-        double currentVelocity = getRelativeEncoderVelocity();
-        ensureProfileStartedIfNeeded(currentVelocity, desiredVelocity, motionProfileType, MotionProfiles.ProfileDomain.VELOCITY);
+        double currentVelocityRotationsPerSecond = getRelativeEncoderVelocity();
+
+        ensureProfileStartedIfNeeded(
+                currentVelocityRotationsPerSecond,
+                desiredVelocityRotationsPerSecond,
+                motionProfileType,
+                MotionProfiles.ProfileDomain.VELOCITY
+        );
 
         SparkMaxMotionState desiredState = motionProfileRunner.sampleNowOrZero();
         lastDesiredState = desiredState;
 
-        double currentPosition = getRelativeEncoderPosition();
+        double currentPositionRotations = getRelativeEncoderPosition();
 
         double feedforwardVoltage = feedforwardModel.calculateVoltage(
-                currentPosition,
+                currentPositionRotations,
                 desiredState.velocity,
                 desiredState.acceleration
         );
 
-        double feedbackVoltage = feedbackController.calculateVelocityFeedback(currentVelocity, desiredState.velocity);
+        double feedbackVoltage = feedbackController.calculateVelocityFeedback(currentVelocityRotationsPerSecond, desiredState.velocity);
 
-        setVoltage(feedforwardVoltage + feedbackVoltage);
+        lastFeedforwardVolts = feedforwardVoltage;
+        lastFeedbackVolts = feedbackVoltage;
+        lastTotalCommandedVolts = MathUtil.clamp(feedforwardVoltage + feedbackVoltage, -MAXIMUM_BATTERY_VOLTAGE, MAXIMUM_BATTERY_VOLTAGE);
+
+        setVoltage(lastTotalCommandedVolts);
     }
 
     private void ensureProfileStartedIfNeeded(
@@ -195,4 +265,9 @@ public final class SuperSparkMax {
                 userConfiguration.TargetAcceleration
         );
     }
+
+    public void positionControlVoltage(double desiredPositionRotations) {
+    PIDPositionControl(desiredPositionRotations);
+}
+
 }

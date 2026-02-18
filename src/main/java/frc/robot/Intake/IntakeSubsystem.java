@@ -1,76 +1,98 @@
 package frc.robot.Intake;
 
-import com.revrobotics.spark.SparkLowLevel.MotorType;
-
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
+import org.littletonrobotics.junction.Logger;
+
+import frc.AutoLogger.IntakeIOInputsAutoLogged;
 import frc.robot.Constants.IntakeConstants;
 
-public class IntakeSubsystem extends SubsystemBase {
+public final class IntakeSubsystem extends SubsystemBase {
 
-    SuperSparkMax intakeSuperSparkMax, pivotIntakeSuperSparkMax;
+    private final IntakeIO intakeHardwareInterface;
+    private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
 
-    boolean itsFullyDeployed, itsFullyRetracted;
+    private boolean isFullyDeployed = false;
+    private boolean isFullyRetracted = true;
 
-  /** Creates a new IntakeSubsystem. */
-  public IntakeSubsystem() {
+    private double lastRequestedPivotTargetRotations = 0.0;
 
-    this.intakeSuperSparkMax = new SuperSparkMax(
-      IntakeConstants.INTAKE_MOTOR_ID, 
-      MotorType.kBrushless,
-      IntakeConstants.INTAKE_MOTOR_CONFIG()
-    );
-    this.pivotIntakeSuperSparkMax = new SuperSparkMax(
-      IntakeConstants.PIVOT_INTAKE_MOTOR_ID, 
-      MotorType.kBrushless,
-      IntakeConstants.PIVOT_INTAKE_MOTOR_CONFIG()
-    );
-
-    this.itsFullyDeployed = false;
-    this.itsFullyRetracted = true;
-
-  }
-
-  public void activateIntake() {
-    this.intakeSuperSparkMax.setVoltage(IntakeConstants.INTAKE_ACTIVATION_VOLTAGE); // Example voltage to activate intake
-  }
-
-  public void stopIntake() {
-    this.intakeSuperSparkMax.setVoltage(0); // Stop the intake
-  } 
-
-  public void deployIntake() {
-    if (getIntakePosition() < IntakeConstants.PIVOT_DEPLOY_POSITION_ROT) {
-      this.pivotIntakeSuperSparkMax.PIDPositionControl(IntakeConstants.PIVOT_DEPLOY_POSITION_ROT);
-    } else {
-      itsFullyDeployed = true;
-      itsFullyRetracted = false;
+    public IntakeSubsystem(IntakeIO intakeHardwareInterface) {
+        this.intakeHardwareInterface = intakeHardwareInterface;
+        this.lastRequestedPivotTargetRotations = IntakeConstants.PIVOT_RETRACT_POSITION_ROT;
     }
-  }
 
-  public void retractIntake() {
-    if (getIntakePosition() > IntakeConstants.PIVOT_RETRACT_POSITION_ROT) {
-      this.pivotIntakeSuperSparkMax.PIDPositionControl(IntakeConstants.PIVOT_RETRACT_POSITION_ROT);
-    } else {
-      itsFullyDeployed = false;
-      itsFullyRetracted = true;
+    @Override
+    public void periodic() {
+        intakeHardwareInterface.updateInputs(inputs);
+        Logger.processInputs("Intake", inputs);
+
+        updateDeploymentStateFromPosition();
     }
-  }
 
-  public void stopPivot() {
-    this.pivotIntakeSuperSparkMax.setVoltage(0); // Stop the pivot motor
-  }
+    private void updateDeploymentStateFromPosition() {
+        double positionRotations = inputs.pivotPositionRotations;
 
-  public double getIntakePosition() {
-    return this.pivotIntakeSuperSparkMax.getRelativeEncoderPosition(); // Get the position of the pivot
-  }
+        double deployTargetRotations = IntakeConstants.PIVOT_DEPLOY_POSITION_ROT;
+        double retractTargetRotations = IntakeConstants.PIVOT_RETRACT_POSITION_ROT;
 
-  public boolean isIntakeDeployed() {
-    return itsFullyDeployed; // Check if the intake is deployed
-  }
+        double toleranceRotations = IntakeConstants.PIVOT_POSITION_TOLERANCE_ROT;
+        double hysteresisRotations = IntakeConstants.PIVOT_POSITION_HYSTERESIS_ROT;
 
-  public boolean isIntakeRetracted() {
-    return itsFullyRetracted; // Check if the intake is retracted
-  }
-    
+        boolean isAtDeploy = positionRotations >= (deployTargetRotations - toleranceRotations);
+        boolean isAtRetract = positionRotations <= (retractTargetRotations + toleranceRotations);
+
+        if (isAtDeploy) {
+            isFullyDeployed = true;
+            isFullyRetracted = false;
+        } else if (positionRotations < (deployTargetRotations - toleranceRotations - hysteresisRotations)) {
+            isFullyDeployed = false;
+        }
+
+        if (isAtRetract) {
+            isFullyRetracted = true;
+            isFullyDeployed = false;
+        } else if (positionRotations > (retractTargetRotations + toleranceRotations + hysteresisRotations)) {
+            isFullyRetracted = false;
+        }
+    }
+
+    // ---------------- Roller ----------------
+
+    public void activateIntake() {
+        intakeHardwareInterface.setRollerVoltage(IntakeConstants.INTAKE_ACTIVATION_VOLTAGE);
+    }
+
+    public void stopIntake() {
+        intakeHardwareInterface.stopRoller();
+    }
+
+    // ---------------- Pivot (human-proof) ----------------
+
+    public void deployIntake() {
+    lastRequestedPivotTargetRotations = IntakeConstants.PIVOT_DEPLOY_POSITION_ROT;
+        intakeHardwareInterface.setPivotPositionPidRotations(lastRequestedPivotTargetRotations);
+    }
+
+    public void retractIntake() {
+        lastRequestedPivotTargetRotations = IntakeConstants.PIVOT_RETRACT_POSITION_ROT;
+        intakeHardwareInterface.setPivotPositionPidRotations(lastRequestedPivotTargetRotations);
+    }
+
+    public void stopPivot() {
+        intakeHardwareInterface.stopPivot();
+    }
+
+    // ---------------- State ----------------
+
+    public double getIntakePositionRotations() {
+        return inputs.pivotPositionRotations;
+    }
+
+    public boolean isIntakeDeployed() {
+        return isFullyDeployed;
+    }
+
+    public boolean isIntakeRetracted() {
+        return isFullyRetracted;
+    }
 }
