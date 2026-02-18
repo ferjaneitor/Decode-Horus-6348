@@ -10,7 +10,6 @@ package frc.robot;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import com.revrobotics.spark.SparkLowLevel;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 
 import edu.wpi.first.math.geometry.Pose2d;
@@ -27,6 +26,10 @@ import frc.robot.Constants.DriveConstants;
 import frc.robot.Constants.FieldCosntants;
 import frc.robot.Constants.IntakeConstants;
 import frc.robot.Constants.VisionConstants;
+import frc.robot.Climber.ClimberIO;
+import frc.robot.Climber.ClimberIOSim;
+import frc.robot.Climber.ClimberIOSpark;
+import frc.robot.Climber.ClimberSubsystem;
 import frc.robot.Drive.Drive;
 import frc.robot.Drive.DriveCommands;
 import frc.robot.Drive.Generated.TunerConstants;
@@ -82,6 +85,8 @@ public class RobotContainer {
     private final HoodSubsystem hoodSubsystem ;
 
     private final IntakeSubsystem intakeSubsystem;
+
+    private final ClimberSubsystem climberSubsystem;
 
     // Dashboard inputs
     private final LoggedDashboardChooser<Command> autoChooser;
@@ -159,6 +164,17 @@ public class RobotContainer {
     };
 
     intakeSubsystem = new IntakeSubsystem(intakeIo);
+
+    ClimberIO climberIo = switch (DriveConstants.CURRENT_MODE) {
+        case REAL -> new ClimberIOSpark(
+            new SuperSparkMax(Constants.ClimberConstants.LEFT_CLIMBER_MOTOR_ID, MotorType.kBrushless, Constants.ClimberConstants.CLIMBER_MOTOR_CONFIG()),
+            new SuperSparkMax(Constants.ClimberConstants.RIGHT_CLIMBER_MOTOR_ID, MotorType.kBrushless, Constants.ClimberConstants.CLIMBER_MOTOR_CONFIG())
+        );
+        case SIM -> new ClimberIOSim();
+        default -> new ClimberIO() {};
+    };
+
+    climberSubsystem = new ClimberSubsystem(climberIo);
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());

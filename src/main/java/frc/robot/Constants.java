@@ -385,5 +385,21 @@ public class Constants {
         }
     }
 
+    public static final class ClimberConstants {
+        public static final int LEFT_CLIMBER_MOTOR_ID = 6;
+        public static final int RIGHT_CLIMBER_MOTOR_ID = 7;
+
+        public static final SparkMaxEntrys.SuperSparkMaxConfig CLIMBER_MOTOR_CONFIG() {
+            SuperSparkMaxConfig config = new SparkMaxEntrys.SuperSparkMaxConfig();
+            config.kIsBrakeMode = true;
+            config.kp = 0.5;
+            config.ki = 0.0;
+            config.kd = 0.0;
+            return config;
+        }
+
+        public static final double CLIMBER_MAX_DUTY_CYCLE = 0.8;
+        public static final double CLIMBER_EXTENDED_POSITION = 0;
+    }
 
 }
