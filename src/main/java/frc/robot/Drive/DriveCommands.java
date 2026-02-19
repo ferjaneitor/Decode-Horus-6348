@@ -340,7 +340,7 @@ public class DriveCommands {
                   new ChassisSpeeds(
                       linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),
                       linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
-                      thetaRadiantsPerSecond * drive.getMaxAngularSpeedRadPerSec()
+                      thetaRadiantsPerSecond 
                       );
 
               boolean isFlipped =
