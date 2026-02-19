@@ -198,7 +198,7 @@ public class RobotContainer {
                       IntakeConstants.PIVOT_INTAKE_MOTOR_ID,
                       MotorType.kBrushless,
                       IntakeConstants.PIVOT_INTAKE_MOTOR_CONFIG()));
-          case SIM -> new IntakeIOSim();
+          case SIM -> new IntakeIOSim(swerveDriveSimulation);
           default -> new IntakeIO() {};
         };
 

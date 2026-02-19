@@ -1,5 +1,12 @@
 package frc.robot;
 
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.KilogramSquareMeters;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.Rotations;
+import static edu.wpi.first.units.Units.Volts;
+
 import java.util.List;
 
 import com.ctre.phoenix6.configs.Slot0Configs;
@@ -7,12 +14,6 @@ import com.ctre.phoenix6.configs.Slot0Configs;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Transform3d;
-import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.Inches;
-import static edu.wpi.first.units.Units.KilogramSquareMeters;
-import static edu.wpi.first.units.Units.MetersPerSecond;
-import static edu.wpi.first.units.Units.Rotations;
-import static edu.wpi.first.units.Units.Volts;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Distance;
@@ -325,6 +326,7 @@ public class Constants {
     }
 
     public static final class IntakeConstants {
+
         public static final int INTAKE_MOTOR_ID = 4;
         public static final int PIVOT_INTAKE_MOTOR_ID = 5;
 
@@ -336,16 +338,15 @@ public class Constants {
         public static final double PIVOT_POSITION_TOLERANCE_ROT = 0.02;
         public static final double PIVOT_POSITION_HYSTERESIS_ROT = 0.02;
 
-        public static final boolean PIVOT_ENABLE_JERK_CONTROL = false;
+        // SIMPLE PID gains (RIO PID in Subsystem.periodic)
+        public static final double PIVOT_POSITION_PID_PROPORTIONAL_GAIN = 0.5;
+        public static final double PIVOT_POSITION_PID_INTEGRAL_GAIN = 0.0;
+        public static final double PIVOT_POSITION_PID_DERIVATIVE_GAIN = 0.0;
 
-        // Motion profile constraints (rotations units)
-        public static final double PIVOT_PROFILE_MAX_VELOCITY_ROT_PER_SEC = 2.0;
-        public static final double PIVOT_PROFILE_MAX_ACCEL_ROT_PER_SEC2 = 6.0;
-        public static final double PIVOT_PROFILE_MAX_JERK_ROT_PER_SEC3 = 40.0;
-
-        // Roller sim
-        public static final double ROLLER_SIM_GEAR_REDUCTION = 1.0;
-        public static final double ROLLER_SIM_MOMENT_OF_INERTIA = 0.0005;
+        // MapleSim intake geometry
+        public static final double MAPLESIM_INTAKE_WIDTH_METERS = 0.70;
+        public static final double MAPLESIM_INTAKE_EXTENSION_METERS = 0.20;
+        public static final int MAPLESIM_INTAKE_CAPACITY = 1;
 
         // Pivot sim (light arm)
         public static final double PIVOT_SIM_GEAR_REDUCTION = 60.0;
@@ -355,15 +356,10 @@ public class Constants {
         public static final double PIVOT_SIM_MAX_ANGLE_RADIANS = 1.8;
         public static final double PIVOT_SIM_START_ANGLE_RADIANS = 0.0;
 
-        // Pivot sim PID
-        public static final double PIVOT_SIM_PID_P = 25.0;
-        public static final double PIVOT_SIM_PID_I = 0.0;
-        public static final double PIVOT_SIM_PID_D = 2.0;
-
         public static final SparkMaxEntrys.SuperSparkMaxConfig INTAKE_MOTOR_CONFIG() {
             SuperSparkMaxConfig config = new SparkMaxEntrys.SuperSparkMaxConfig();
             config.kIsBrakeMode = true;
-            config.kp = 0.5;
+            config.kp = 0.0;
             config.ki = 0.0;
             config.kd = 0.0;
             return config;
@@ -372,14 +368,11 @@ public class Constants {
         public static final SparkMaxEntrys.SuperSparkMaxConfig PIVOT_INTAKE_MOTOR_CONFIG() {
             SuperSparkMaxConfig config = new SparkMaxEntrys.SuperSparkMaxConfig();
             config.kIsBrakeMode = true;
-            config.kp = 0.5;
+
+            // Not using profiles and not using internal PID for position hold.
+            config.kp = 0.0;
             config.ki = 0.0;
             config.kd = 0.0;
-
-            // para motion profile
-            config.CruiseVelocity = PIVOT_PROFILE_MAX_VELOCITY_ROT_PER_SEC;
-            config.TargetAcceleration = PIVOT_PROFILE_MAX_ACCEL_ROT_PER_SEC2;
-            config.TargetJerk = PIVOT_PROFILE_MAX_JERK_ROT_PER_SEC3;
 
             return config;
         }

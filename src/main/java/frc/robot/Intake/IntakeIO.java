@@ -4,11 +4,6 @@ import org.littletonrobotics.junction.AutoLog;
 
 public interface IntakeIO {
 
-    public enum PivotControlMode {
-        OPEN_LOOP_VOLTAGE,
-        POSITION_PID
-    }
-
     @AutoLog
     public static class IntakeIOInputs {
         public boolean rollerConnected = false;
@@ -22,13 +17,15 @@ public interface IntakeIO {
         public double pivotAppliedVolts = 0.0;
         public double pivotCurrentAmps = 0.0;
 
-        public PivotControlMode pivotControlMode = PivotControlMode.OPEN_LOOP_VOLTAGE;
+        // Telemetry simple del PID (llenado por el Subsystem)
         public double pivotTargetPositionRotations = 0.0;
-
-        // Telemetry PID simple
         public double pivotPositionErrorRotations = 0.0;
-        public double feedbackVolts = 0.0;
-        public double totalCommandedVolts = 0.0;
+        public double pivotFeedbackVolts = 0.0;
+        public double pivotTotalCommandedVolts = 0.0;
+
+        // MapleSim (SIM)
+        public boolean isFuelInsideIntake = false;
+        public int fuelCountInsideIntake = 0;
     }
 
     public default void updateInputs(IntakeIOInputs intakeInputs) {}
@@ -39,5 +36,7 @@ public interface IntakeIO {
     public default void setPivotVoltage(double voltage) {}
     public default void stopPivot() {}
 
-    public default void setPivotPositionPidRotations(double targetPositionRotations) {}
+    // MapleSim (SIM) only
+    public default void setRunning(boolean runIntake) {}
+    public default boolean isFuelInsideIntake() { return false; }
 }

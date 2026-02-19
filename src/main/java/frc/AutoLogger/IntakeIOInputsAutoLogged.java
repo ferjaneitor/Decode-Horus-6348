@@ -5,7 +5,7 @@ import org.littletonrobotics.junction.inputs.LoggableInputs;
 
 import frc.robot.Intake.IntakeIO;
 
-public class IntakeIOInputsAutoLogged extends IntakeIO.IntakeIOInputs implements LoggableInputs, Cloneable {
+public final class IntakeIOInputsAutoLogged extends IntakeIO.IntakeIOInputs implements LoggableInputs, Cloneable {
 
     @Override
     public void toLog(LogTable table) {
@@ -20,12 +20,15 @@ public class IntakeIOInputsAutoLogged extends IntakeIO.IntakeIOInputs implements
         table.put("PivotAppliedVolts", pivotAppliedVolts);
         table.put("PivotCurrentAmps", pivotCurrentAmps);
 
-        table.put("PivotControlModeOrdinal", pivotControlMode != null ? pivotControlMode.ordinal() : -1);
+        // Simple PID telemetry (now filled by the Subsystem)
         table.put("PivotTargetPositionRotations", pivotTargetPositionRotations);
-
         table.put("PivotPositionErrorRotations", pivotPositionErrorRotations);
-        table.put("FeedbackVolts", feedbackVolts);
-        table.put("TotalCommandedVolts", totalCommandedVolts);
+        table.put("PivotFeedbackVolts", pivotFeedbackVolts);
+        table.put("PivotTotalCommandedVolts", pivotTotalCommandedVolts);
+
+        // MapleSim (SIM)
+        table.put("IsFuelInsideIntake", isFuelInsideIntake);
+        table.put("FuelCountInsideIntake", fuelCountInsideIntake);
     }
 
     @Override
@@ -43,19 +46,15 @@ public class IntakeIOInputsAutoLogged extends IntakeIO.IntakeIOInputs implements
         pivotAppliedVolts = table.get("PivotAppliedVolts", pivotAppliedVolts);
         pivotCurrentAmps = table.get("PivotCurrentAmps", pivotCurrentAmps);
 
-        int pivotControlModeOrdinal = table.get("PivotControlModeOrdinal", -1);
-        if (pivotControlModeOrdinal >= 0
-                && pivotControlModeOrdinal < IntakeIO.PivotControlMode.values().length) {
-            pivotControlMode = IntakeIO.PivotControlMode.values()[pivotControlModeOrdinal];
-        }
-
         pivotTargetPositionRotations =
                 table.get("PivotTargetPositionRotations", pivotTargetPositionRotations);
-
         pivotPositionErrorRotations =
                 table.get("PivotPositionErrorRotations", pivotPositionErrorRotations);
-        feedbackVolts = table.get("FeedbackVolts", feedbackVolts);
-        totalCommandedVolts = table.get("TotalCommandedVolts", totalCommandedVolts);
+        pivotFeedbackVolts = table.get("PivotFeedbackVolts", pivotFeedbackVolts);
+        pivotTotalCommandedVolts = table.get("PivotTotalCommandedVolts", pivotTotalCommandedVolts);
+
+        isFuelInsideIntake = table.get("IsFuelInsideIntake", isFuelInsideIntake);
+        fuelCountInsideIntake = table.get("FuelCountInsideIntake", fuelCountInsideIntake);
     }
 
     @Override
@@ -73,12 +72,13 @@ public class IntakeIOInputsAutoLogged extends IntakeIO.IntakeIOInputs implements
         copy.pivotAppliedVolts = this.pivotAppliedVolts;
         copy.pivotCurrentAmps = this.pivotCurrentAmps;
 
-        copy.pivotControlMode = this.pivotControlMode;
         copy.pivotTargetPositionRotations = this.pivotTargetPositionRotations;
-
         copy.pivotPositionErrorRotations = this.pivotPositionErrorRotations;
-        copy.feedbackVolts = this.feedbackVolts;
-        copy.totalCommandedVolts = this.totalCommandedVolts;
+        copy.pivotFeedbackVolts = this.pivotFeedbackVolts;
+        copy.pivotTotalCommandedVolts = this.pivotTotalCommandedVolts;
+
+        copy.isFuelInsideIntake = this.isFuelInsideIntake;
+        copy.fuelCountInsideIntake = this.fuelCountInsideIntake;
 
         return copy;
     }

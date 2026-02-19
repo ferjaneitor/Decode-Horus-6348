@@ -2,35 +2,27 @@ package frc.robot.Intake;
 
 import edu.wpi.first.wpilibj2.command.Command;
 
-public class ActivateIntakeCmd extends Command {
-  private final IntakeSubsystem m_intakeSubsystem;
+public final class ActivateIntakeCmd extends Command {
 
-  public ActivateIntakeCmd(IntakeSubsystem intakeSubsystem) {
-    m_intakeSubsystem = intakeSubsystem;
-    addRequirements(m_intakeSubsystem);
-  }
+    private final IntakeSubsystem intakeSubsystem;
 
-  @Override
-  public void initialize() {
-    // Code to activate the intake mechanism
-  }
+    public ActivateIntakeCmd(IntakeSubsystem intakeSubsystem) {
+        this.intakeSubsystem = intakeSubsystem;
+        addRequirements(this.intakeSubsystem);
+    }
 
-  @Override
-  public void execute() {
-    // Code to keep the intake active if necessary
-    m_intakeSubsystem.activateIntake();
-  }
+    @Override
+    public void initialize() {
+        intakeSubsystem.setRollerEnabled(true);
+    }
 
-  @Override
-  public void end(boolean interrupted) {
-    // Code to stop the intake mechanism if necessary
-    m_intakeSubsystem.stopIntake();
-  }
+    @Override
+    public void end(boolean interrupted) {
+        intakeSubsystem.setRollerEnabled(false);
+    }
 
-  @Override
-  public boolean isFinished() {
-    // Return true when the intake has completed its action, or false if it should run indefinitely
-    return true; // Placeholder, change as needed
-  }
-    
+    @Override
+    public boolean isFinished() {
+        return false;
+    }
 }
