@@ -1,10 +1,11 @@
 // File: src/main/java/frc/robot/Climber/ClimberSubsystem.java
 package frc.robot.Climber;
 
-import com.revrobotics.spark.SparkLowLevel;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import org.littletonrobotics.junction.Logger;
 
+import com.revrobotics.spark.SparkLowLevel;
+
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.AutoLogger.ClimberIOInputsAutoLogged;
 import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
 import frc.robot.Constants;

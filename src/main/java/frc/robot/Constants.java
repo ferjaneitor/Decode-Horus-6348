@@ -175,55 +175,59 @@ public class Constants {
         public static final double TARGET_HEIGHT_METERS = 1.8288;
         public static final double SHOOTER_EXIT_HEIGHT_METERS = 22 * 0.0254;
 
-        public static final double GRAVITY = 9.81;
+        public static final double GRAVITY_METERS_PER_SECOND_SQUARED = 9.81;
         public static final double APEX_MAX_HEIGHT_METERS = 2.4;
 
-        public static final double APEX_RELATIVE_TO_SHOOTER =
+        public static final double APEX_RELATIVE_TO_SHOOTER_METERS =
             APEX_MAX_HEIGHT_METERS - SHOOTER_EXIT_HEIGHT_METERS;
 
-        public static final double APEX_TO_TARGET =
+        public static final double APEX_TO_TARGET_METERS =
             APEX_MAX_HEIGHT_METERS - TARGET_HEIGHT_METERS;
 
         public static final double VERTICAL_LAUNCH_VELOCITY_METERS_PER_SECOND =
-            Math.sqrt(2 * GRAVITY * APEX_RELATIVE_TO_SHOOTER);
+            Math.sqrt(2.0 * GRAVITY_METERS_PER_SECOND_SQUARED * APEX_RELATIVE_TO_SHOOTER_METERS);
 
-        public static final double TIME_GOING_UP =
-            VERTICAL_LAUNCH_VELOCITY_METERS_PER_SECOND / GRAVITY;   
+        public static final double TIME_GOING_UP_SECONDS =
+            VERTICAL_LAUNCH_VELOCITY_METERS_PER_SECOND / GRAVITY_METERS_PER_SECOND_SQUARED;
 
-        public static final double TIME_GOING_DOWN =
-            Math.sqrt(2 * APEX_TO_TARGET / GRAVITY);
+        public static final double TIME_GOING_DOWN_SECONDS =
+            Math.sqrt(2.0 * APEX_TO_TARGET_METERS / GRAVITY_METERS_PER_SECOND_SQUARED);
 
         public static final double TOTAL_TIME_SECONDS =
-            TIME_GOING_UP + TIME_GOING_DOWN;
+            TIME_GOING_UP_SECONDS + TIME_GOING_DOWN_SECONDS;
 
         public static final double DEFAULT_HORIZONTAL_DISTANCE_METERS = 2.0;
 
         public static final double DEFAULT_HORIZONTAL_VELOCITY_METERS_PER_SECOND =
             DEFAULT_HORIZONTAL_DISTANCE_METERS / TOTAL_TIME_SECONDS;
-        
-        public static final double DEFAULT_HOOD_ANGLE_ROT =
-            Math.toRadians(90) - Math.atan2(
+
+        // MODEL angle (same definition as ShootingHelper.getHoodAngleRadians()).
+        public static final double DEFAULT_HOOD_ANGLE_RADIANS =
+            Math.atan2(
                 VERTICAL_LAUNCH_VELOCITY_METERS_PER_SECOND,
                 DEFAULT_HORIZONTAL_VELOCITY_METERS_PER_SECOND
             );
 
-        public static final double DEFAULT_EXIT_SPEED_METERS_PER_SECOND = Math.hypot(
-            DEFAULT_HORIZONTAL_VELOCITY_METERS_PER_SECOND,
-            VERTICAL_LAUNCH_VELOCITY_METERS_PER_SECOND
-        );
+        // Keep alias to avoid breaking other code paths; name is misleading.
+        public static final double DEFAULT_HOOD_ANGLE_ROT = DEFAULT_HOOD_ANGLE_RADIANS;
 
-        public static final double MAX_RPM = 6000;
-        public static final double WHEEL_DIAMETER_METERS = 4 * 0.0254;
+        public static final double DEFAULT_EXIT_SPEED_METERS_PER_SECOND =
+            Math.hypot(
+                DEFAULT_HORIZONTAL_VELOCITY_METERS_PER_SECOND,
+                VERTICAL_LAUNCH_VELOCITY_METERS_PER_SECOND
+            );
+
+        public static final double MAX_RPM = 6000.0;
+        public static final double WHEEL_DIAMETER_METERS = 4.0 * 0.0254;
         public static final double WHEEL_CIRCUMFERENCE = WHEEL_DIAMETER_METERS * Math.PI;
 
-        public static final double EXIT_SPEED_CONVERSION =
-            WHEEL_CIRCUMFERENCE / 60.0;
+        public static final double EXIT_SPEED_CONVERSION = WHEEL_CIRCUMFERENCE / 60.0;
 
         public static final double MAXIMUM_EXIT_SPEED_METERS_PER_SECOND =
             MAX_RPM * EXIT_SPEED_CONVERSION * 0.60;
 
-        public static final double MINIMUM_HOOD_ANGLE_RADIANS = Math.toRadians(0);
-        public static final double MAXIMUM_HOOD_ANGLE_RADIANS = Math.toRadians(90);
+        public static final double MINIMUM_HOOD_ANGLE_RADIANS = Math.toRadians(0.0);
+        public static final double MAXIMUM_HOOD_ANGLE_RADIANS = Math.toRadians(90.0);
 
         public static final double MINIMUM_HORIZONTAL_DISTANCE_METERS = 0.1;
     }
@@ -286,6 +290,7 @@ public class Constants {
             .withKP(0.11)
             .withKI(0.0)
             .withKD(0.0);
+
         public static final Slot0Configs RIGHT_HOOD_PROPULSION_SLOT_CONFIGS = new Slot0Configs()
             .withKS(0.1)
             .withKG(0.0)
@@ -294,6 +299,7 @@ public class Constants {
             .withKP(0.11)
             .withKI(0.0)
             .withKD(0.0);
+
         public static final Slot0Configs LEFT_HOOD_PROPULSION_SLOT_CONFIGS = new Slot0Configs()
             .withKS(0.1)
             .withKG(0.0)
@@ -302,6 +308,7 @@ public class Constants {
             .withKP(0.11)
             .withKI(0.0)
             .withKD(0.0);
+
         public static final Slot0Configs INDEXER_SLOT_CONFIGS = new Slot0Configs()
             .withKS(0.1)
             .withKG(0.0)
@@ -313,16 +320,31 @@ public class Constants {
 
         public static final double HOOD_SHOOTING_GEAR_RATIO = 1.0;
         public static final double HOOD_ANGLE_GEAR_RATIO = 1.0;
-        public static final double CONVERSION_RATIO_FROM_METERS_TO_RPS = HOOD_SHOOTING_GEAR_RATIO / ShootingConstants.WHEEL_CIRCUMFERENCE ;
+
+        public static final double CONVERSION_RATIO_FROM_METERS_TO_RPS =
+            HOOD_SHOOTING_GEAR_RATIO / ShootingConstants.WHEEL_CIRCUMFERENCE;
+
         public static final double INDEXER_SPEED = 0.95;
 
         public static final double HOOD_ANGLE_TOLERANCE_ROT = 0.01;
         public static final double HOOD_SHOOTING_VELOCITY_TOLERANCE_RPS = 0.05;
 
-        public static final double CONVERSION_RATIO_RAD_TO_ROT = HOOD_ANGLE_GEAR_RATIO / (2 * Math.PI);
+        public static final double CONVERSION_RATIO_RAD_TO_ROT =
+            HOOD_ANGLE_GEAR_RATIO / (2.0 * Math.PI);
 
-        public static final double COMPLEMENTARY_ANGLE = Math.toRadians(90);
+        public static final double COMPLEMENTARY_ANGLE = Math.toRadians(90.0);
 
+        // Home position for relative encoder systems (assume robot boots at home).
+        public static final double HOOD_HOME_POSITION_ROTATIONS = 0.0;
+
+        // Offset in radians applied AFTER complementary conversion and BEFORE rotations.
+        public static final double HOOD_ANGLE_OFFSET_RADIANS = 0.0;
+
+        // Post-shot behavior: cut wheels + indexer first, then return hood to home.
+        public static final double POST_SHOT_COAST_MINIMUM_TIME_SECONDS = 0.10;
+        public static final double POST_SHOT_COAST_MAXIMUM_TIME_SECONDS = 0.75;
+
+        public static final double POST_SHOT_WHEEL_STOP_THRESHOLD_ROTATIONS_PER_SECOND = 1.0;
     }
 
     public static final class IntakeConstants {

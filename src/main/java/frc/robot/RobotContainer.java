@@ -7,6 +7,8 @@
 
 package frc.robot;
 
+import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -19,32 +21,27 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-
 import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
 import frc.SuperSubsystem.SuperVision.VisionStandardDeviationModel;
-import frc.robot.Constants.DriveConstants;
-import frc.robot.Constants.FieldCosntants;
-import frc.robot.Constants.IntakeConstants;
-import frc.robot.Constants.VisionConstants;
-
 import frc.robot.Climber.ClimberIO;
 import frc.robot.Climber.ClimberIOSim;
 import frc.robot.Climber.ClimberIOSpark;
 import frc.robot.Climber.ClimberSubsystem;
 import frc.robot.Climber.ExpandClimberCmd;
 import frc.robot.Climber.RetractClimberCmd;
-
+import frc.robot.Constants.DriveConstants;
+import frc.robot.Constants.FieldCosntants;
+import frc.robot.Constants.IntakeConstants;
+import frc.robot.Constants.VisionConstants;
 import frc.robot.Drive.Drive;
 import frc.robot.Drive.DriveCommands;
 import frc.robot.Drive.Generated.TunerConstants;
 import frc.robot.Drive.Gyro.GyroIO;
 import frc.robot.Drive.Gyro.GyroIOPigeon2;
 import frc.robot.Drive.Gyro.GyroIOSim;
-
 import frc.robot.Drive.SwerveModule.ModuleIO;
 import frc.robot.Drive.SwerveModule.ModuleIOTalonFX;
 import frc.robot.Drive.SwerveModule.ModuleIOTalonFXSim;
-
 import frc.robot.Intake.ActivateIntakeCmd;
 import frc.robot.Intake.DeployIntakeCmd;
 import frc.robot.Intake.IntakeIO;
@@ -52,20 +49,14 @@ import frc.robot.Intake.IntakeIOSim;
 import frc.robot.Intake.IntakeIOSpark;
 import frc.robot.Intake.IntakeSubsystem;
 import frc.robot.Intake.RetractIntakeCmd;
-
-import frc.robot.Shooting.ShootingHelper;
 import frc.robot.Shooting.Hood.HoodCmd;
 import frc.robot.Shooting.Hood.HoodIO;
 import frc.robot.Shooting.Hood.HoodIOSim;
 import frc.robot.Shooting.Hood.HoodIOTalonFx;
 import frc.robot.Shooting.Hood.HoodSubsystem;
-
+import frc.robot.Shooting.ShootingHelper;
 import frc.robot.Vision.VisionHardwareFactoryImpl;
 import frc.robot.Vision.VisionSubsystem;
-
-// MapleSim
-import org.ironmaple.simulation.SimulatedArena;
-import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 
 public class RobotContainer {
   private final Drive drive;
@@ -273,9 +264,11 @@ public class RobotContainer {
                 .ignoringDisable(true));
 
     controller.rightTrigger().whileTrue(new HoodCmd(hoodSubsystem, visionSubsystem, shootingHelper));
+
     controller.leftTrigger().whileTrue(new ActivateIntakeCmd(intakeSubsystem));
     controller.b().onTrue(new DeployIntakeCmd(intakeSubsystem));
     controller.a().onTrue(new RetractIntakeCmd(intakeSubsystem));
+    
     controller.leftBumper().whileTrue(new ExpandClimberCmd(climberSubsystem));
     controller.rightBumper().whileTrue(new RetractClimberCmd(climberSubsystem));
   }

@@ -2,12 +2,11 @@
 package frc.robot.Climber;
 
 import com.revrobotics.spark.SparkBase;
+
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.Debouncer;
-
 import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
 import frc.robot.Util.SparkUtil;
-
 import static frc.robot.Util.SparkUtil.ifOk;
 
 public final class ClimberIOSpark implements ClimberIO {

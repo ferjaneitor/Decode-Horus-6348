@@ -4,6 +4,7 @@ import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
 
 import frc.robot.Shooting.Hood.HoodIO.HoodIOInputs;
+
 public class HoodIOInputsAutoLogged extends HoodIOInputs implements LoggableInputs, Cloneable {
 
     @Override
@@ -76,7 +77,7 @@ public class HoodIOInputsAutoLogged extends HoodIOInputs implements LoggableInpu
 
     @Override
     public HoodIOInputsAutoLogged clone() throws CloneNotSupportedException {
-    HoodIOInputsAutoLogged copy = (HoodIOInputsAutoLogged) super.clone();   
+        HoodIOInputsAutoLogged copy = (HoodIOInputsAutoLogged) super.clone();
 
         copy.hoodAngleMotorConnected = this.hoodAngleMotorConnected;
         copy.leftWheelMotorConnected = this.leftWheelMotorConnected;

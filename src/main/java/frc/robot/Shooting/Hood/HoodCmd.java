@@ -1,7 +1,6 @@
 package frc.robot.Shooting.Hood;
 
 import edu.wpi.first.wpilibj2.command.Command;
-import frc.robot.Constants.ShootingConstants;
 import frc.robot.Shooting.ShootingHelper;
 import frc.robot.Vision.VisionSubsystem;
 
@@ -19,40 +18,26 @@ public class HoodCmd extends Command {
         this.hoodSubsystem = hoodSubsystem;
         this.visionSubsystem = visionSubsystem;
         this.shootingHelper = shootingHelper;
-
         addRequirements(hoodSubsystem);
     }
 
     @Override
+    public void initialize() {
+        hoodSubsystem.setShootingRequestActive(true);
+    }
+
+    @Override
     public void execute() {
-        boolean shouldUseLiveSolution =
-            visionSubsystem.hasTarget()
-            && visionSubsystem.itsAValidShootingTarget()
-            && shootingHelper.isPossibleToShoot();
-
-        double desiredExitSpeedMetersPerSecond = shouldUseLiveSolution
-            ? shootingHelper.getExitSpeedMetersPerSecond()
-            : ShootingConstants.DEFAULT_EXIT_SPEED_METERS_PER_SECOND;
-
-        double desiredHoodAngleRadians = shouldUseLiveSolution
-            ? shootingHelper.getHoodAngleRadians()
-            : ShootingConstants.DEFAULT_HOOD_ANGLE_ROT;
-
-        hoodSubsystem.setGoalsMetersPerSecondAndRadians(
-            desiredExitSpeedMetersPerSecond,
-            desiredHoodAngleRadians
-        );
-
-        hoodSubsystem.setIndexerEnabled(hoodSubsystem.isReadyToShoot());
+        hoodSubsystem.updateShootingSolution(visionSubsystem, shootingHelper);
     }
 
     @Override
     public void end(boolean interrupted) {
-        hoodSubsystem.stop();
+        hoodSubsystem.setShootingRequestActive(false);
     }
 
     @Override
     public boolean isFinished() {
-        return true; // This command should run indefinitely until interrupted
+        return false;
     }
 }
