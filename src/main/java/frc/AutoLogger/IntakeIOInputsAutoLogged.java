@@ -3,7 +3,7 @@ package frc.AutoLogger;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
 
-import frc.robot.Intake.IntakeIO;
+import frc.robot.Intake.IO.IntakeIO;
 
 public final class IntakeIOInputsAutoLogged extends IntakeIO.IntakeIOInputs implements LoggableInputs, Cloneable {
 

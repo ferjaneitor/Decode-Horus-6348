@@ -1,5 +1,5 @@
 // File: src/main/java/frc/robot/Climber/ClimberIOSim.java
-package frc.robot.Climber;
+package frc.robot.Climber.IO;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;

@@ -8,6 +8,7 @@ import frc.AutoLogger.HoodIOInputsAutoLogged;
 import frc.robot.Constants.HoodConstants;
 import frc.robot.Constants.ShootingConstants;
 import frc.robot.Shooting.ShootingHelper;
+import frc.robot.Shooting.Hood.IO.HoodIO;
 import frc.robot.Vision.VisionSubsystem;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;

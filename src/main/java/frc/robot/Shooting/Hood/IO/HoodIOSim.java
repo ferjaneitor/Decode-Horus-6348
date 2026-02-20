@@ -1,4 +1,4 @@
-package frc.robot.Shooting.Hood;
+package frc.robot.Shooting.Hood.IO;
 
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.MotionMagicExpoTorqueCurrentFOC;

@@ -1,5 +1,5 @@
 // File: src/main/java/frc/robot/Climber/ClimberIO.java
-package frc.robot.Climber;
+package frc.robot.Climber.IO;
 
 import org.littletonrobotics.junction.AutoLog;
 

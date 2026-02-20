@@ -4,7 +4,7 @@ package frc.AutoLogger;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
 
-import frc.robot.Climber.ClimberIO;
+import frc.robot.Climber.IO.ClimberIO;
 
 public final class ClimberIOInputsAutoLogged extends ClimberIO.ClimberIOInputs implements LoggableInputs, Cloneable {
 

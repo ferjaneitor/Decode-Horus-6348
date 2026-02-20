@@ -1,5 +1,5 @@
 // File: src/main/java/frc/robot/Climber/ClimberIOSpark.java
-package frc.robot.Climber;
+package frc.robot.Climber.IO;
 
 import com.revrobotics.spark.SparkBase;
 

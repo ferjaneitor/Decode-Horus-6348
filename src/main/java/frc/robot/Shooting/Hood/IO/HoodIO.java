@@ -1,4 +1,4 @@
-package frc.robot.Shooting.Hood;
+package frc.robot.Shooting.Hood.IO;
 
 import org.littletonrobotics.junction.AutoLog;
 

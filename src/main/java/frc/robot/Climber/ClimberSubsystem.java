@@ -8,6 +8,8 @@ import com.revrobotics.spark.SparkLowLevel;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.AutoLogger.ClimberIOInputsAutoLogged;
 import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
+import frc.robot.Climber.IO.ClimberIO;
+import frc.robot.Climber.IO.ClimberIOSpark;
 import frc.robot.Constants;
 import frc.robot.Constants.ClimberConstants;
 

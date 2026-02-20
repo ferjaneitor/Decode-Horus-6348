@@ -1,4 +1,4 @@
-package frc.robot.Intake;
+package frc.robot.Intake.IO;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj.RobotController;

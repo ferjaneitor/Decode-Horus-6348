@@ -8,6 +8,7 @@ import org.littletonrobotics.junction.Logger;
 
 import frc.AutoLogger.IntakeIOInputsAutoLogged;
 import frc.robot.Constants.IntakeConstants;
+import frc.robot.Intake.IO.IntakeIO;
 
 public final class IntakeSubsystem extends SubsystemBase {
 

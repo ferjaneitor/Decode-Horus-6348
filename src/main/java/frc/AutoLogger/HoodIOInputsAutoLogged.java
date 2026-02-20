@@ -3,7 +3,7 @@ package frc.AutoLogger;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
 
-import frc.robot.Shooting.Hood.HoodIO.HoodIOInputs;
+import frc.robot.Shooting.Hood.IO.HoodIO.HoodIOInputs;
 
 public class HoodIOInputsAutoLogged extends HoodIOInputs implements LoggableInputs, Cloneable {
 

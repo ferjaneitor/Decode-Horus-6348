@@ -1,4 +1,4 @@
-package frc.robot.Intake;
+package frc.robot.Intake.IO;
 
 import com.revrobotics.spark.SparkBase;
 import edu.wpi.first.math.filter.Debouncer;
