@@ -1,15 +1,23 @@
 package frc.robot.Shooting.Hood;
 
 import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.AutoLogger.HoodIOInputsAutoLogged;
+import frc.SIm.Shooting.ShooterProjectileSimulation;
+import frc.SIm.Shooting.ShooterShotParameters;
 import frc.robot.Constants.HoodConstants;
 import frc.robot.Constants.ShootingConstants;
 import frc.robot.Shooting.ShootingHelper;
 import frc.robot.Shooting.Hood.IO.HoodIO;
 import frc.robot.Vision.VisionSubsystem;
+
+import java.util.function.Supplier;
+
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -42,6 +50,16 @@ public class HoodSubsystem extends SubsystemBase {
 
     @AutoLogOutput(key = "Hood/ReadyToShoot")
     private boolean readyToShoot = false;
+
+    private ShooterProjectileSimulation shooterProjectileSimulation = (shotParameters) -> {};
+
+    private Supplier<Pose2d> robotPoseFieldSupplier = () -> Pose2d.kZero;
+    private Supplier<ChassisSpeeds> robotFieldRelativeChassisSpeedsSupplier = () -> new ChassisSpeeds();
+
+    private double nextAllowedShotTimestampSeconds = 0.0;
+    private boolean lastIndexerEnabledCommanded = false;
+
+    private static final double SHOT_COOLDOWN_SECONDS = 0.25;
 
     public HoodSubsystem(HoodIO hoodIo) {
         this.hoodIo = hoodIo;
@@ -107,6 +125,8 @@ public class HoodSubsystem extends SubsystemBase {
 
                 // Indexer ONLY if the button is held AND we're ready.
                 outputs.indexerEnabled = isShootingRequestActive && readyToShoot;
+
+                maybeSimulateShot(outputs.indexerEnabled);
             }
 
             case POST_SHOT_COASTING -> {
@@ -248,5 +268,50 @@ public class HoodSubsystem extends SubsystemBase {
 
         return leftAbsoluteRotationsPerSecond <= HoodConstants.POST_SHOT_WHEEL_STOP_THRESHOLD_ROTATIONS_PER_SECOND
             && rightAbsoluteRotationsPerSecond <= HoodConstants.POST_SHOT_WHEEL_STOP_THRESHOLD_ROTATIONS_PER_SECOND;
+    }
+
+    public void setShooterProjectileSimulation(ShooterProjectileSimulation newShooterProjectileSimulation) {
+        shooterProjectileSimulation =
+            (newShooterProjectileSimulation != null) ? newShooterProjectileSimulation : (shotParameters) -> {};
+    }
+
+    public void setRobotStateSuppliers(
+        Supplier<Pose2d> newRobotPoseFieldSupplier,
+        Supplier<ChassisSpeeds> newRobotFieldRelativeChassisSpeedsSupplier
+    ) {
+        if (newRobotPoseFieldSupplier != null) {
+            robotPoseFieldSupplier = newRobotPoseFieldSupplier;
+        }
+        if (newRobotFieldRelativeChassisSpeedsSupplier != null) {
+            robotFieldRelativeChassisSpeedsSupplier = newRobotFieldRelativeChassisSpeedsSupplier;
+        }
+    }
+
+    private void maybeSimulateShot(boolean indexerEnabledCommanded) {
+        if (!RobotBase.isSimulation()) {
+            return;
+        }
+
+        double currentTimestampSeconds = Timer.getFPGATimestamp();
+
+        boolean isIndexerRisingEdge = indexerEnabledCommanded && !lastIndexerEnabledCommanded;
+        lastIndexerEnabledCommanded = indexerEnabledCommanded;
+
+        boolean isAllowedByCooldown = currentTimestampSeconds >= nextAllowedShotTimestampSeconds;
+
+        if (indexerEnabledCommanded && (isIndexerRisingEdge || isAllowedByCooldown)) {
+            nextAllowedShotTimestampSeconds = currentTimestampSeconds + SHOT_COOLDOWN_SECONDS;
+
+            ShooterShotParameters shotParameters =
+                new ShooterShotParameters(
+                    desiredExitSpeedMetersPerSecond,
+                    desiredHoodAngleRadiansFromModel,
+                    frc.robot.Constants.ShootingConstants.SHOOTER_EXIT_HEIGHT_METERS,
+                    robotPoseFieldSupplier.get(),
+                    robotFieldRelativeChassisSpeedsSupplier.get()
+                );
+
+            shooterProjectileSimulation.simulateShot(shotParameters);
+        }
     }
 }

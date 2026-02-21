@@ -17,10 +17,15 @@ import com.revrobotics.spark.SparkLowLevel.MotorType;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.units.Units;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.SIm.Shooting.ShooterShotParameters;
+import frc.SIm.SimLibraries.FuelSim;
 import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
 import frc.SuperSubsystem.SuperVision.VisionStandardDeviationModel;
 import frc.robot.Climber.ClimberSubsystem;
@@ -90,7 +95,16 @@ public class RobotContainer {
 
   private final LoggedDashboardChooser<Command> autoChooser;
 
+  private enum ShooterProjectileSimulationMode {
+        MAPLE_SIM_ONLY,
+        HYBRID_MAPLE_ROBOT_FUEL_SIM_PROJECTILES
+    }
+
+    private final SendableChooser<ShooterProjectileSimulationMode> shooterProjectileSimulationModeChooser =
+        new SendableChooser<>();
+
   public RobotContainer() {
+    
     switch (DriveConstants.CURRENT_MODE) {
       case SIM -> {
         swerveDriveSimulation =
@@ -231,6 +245,9 @@ public class RobotContainer {
         "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
     configureButtonBindings();
+
+    configureShooterSimulationModeChooser();
+    configureShooterSimulationHooks();
   }
 
   private void configureButtonBindings() {
@@ -285,6 +302,11 @@ public class RobotContainer {
 
     SimulatedArena.getInstance().simulationPeriodic();
     Logger.recordOutput("FieldSimulation/RobotPose", swerveDriveSimulation.getSimulatedDriveTrainPose());
+
+    ShooterProjectileSimulationMode selectedMode = shooterProjectileSimulationModeChooser.getSelected();
+    if (selectedMode == ShooterProjectileSimulationMode.HYBRID_MAPLE_ROBOT_FUEL_SIM_PROJECTILES) {
+        FuelSim.getInstance().updateSim();
+    }
   }
 
   // Call from Robot.disabledInit()
@@ -294,5 +316,70 @@ public class RobotContainer {
     }
 
     swerveDriveSimulation.setSimulationWorldPose(drive.getPose());
+
+    FuelSim.getInstance().stop();
+    FuelSim.getInstance().clearFuel();
+    FuelSim.Hub.BLUE_HUB.resetScore();
+    FuelSim.Hub.RED_HUB.resetScore();
+
+    double robotWidthMeters =
+        frc.robot.Constants.DriveConstants.kTrackWidth.in(edu.wpi.first.units.Units.Meters);
+
+    double robotLengthMeters =
+        frc.robot.Constants.DriveConstants.kWheelBase.in(edu.wpi.first.units.Units.Meters);
+
+    FuelSim.getInstance().registerRobot(
+        robotWidthMeters,
+        robotLengthMeters,
+        0.45,
+        () -> drive.getPose(),
+        () -> drive.getFieldRelativeChassisSpeeds()
+    );
+
+    FuelSim.getInstance().start();
+
   }
+
+  private void configureShooterSimulationModeChooser() {
+        shooterProjectileSimulationModeChooser.setDefaultOption(
+            "MapleSim only (no projectiles yet)",
+            ShooterProjectileSimulationMode.MAPLE_SIM_ONLY
+        );
+
+        shooterProjectileSimulationModeChooser.addOption(
+            "Hybrid (Maple robot + FuelSim projectiles)",
+            ShooterProjectileSimulationMode.HYBRID_MAPLE_ROBOT_FUEL_SIM_PROJECTILES
+        );
+
+        SmartDashboard.putData("Simulation/ShooterProjectileMode", shooterProjectileSimulationModeChooser);
+    }
+
+    private void configureShooterSimulationHooks() {
+        hoodSubsystem.setRobotStateSuppliers(
+            () -> drive.getPose(),
+            () -> drive.getFieldRelativeChassisSpeeds()
+        );
+
+        hoodSubsystem.setShooterProjectileSimulation((ShooterShotParameters shotParameters) -> {
+            ShooterProjectileSimulationMode selectedMode = shooterProjectileSimulationModeChooser.getSelected();
+            if (selectedMode == null) {
+                selectedMode = ShooterProjectileSimulationMode.MAPLE_SIM_ONLY;
+            }
+
+            if (selectedMode == ShooterProjectileSimulationMode.MAPLE_SIM_ONLY) {
+                // Por ahora: MapleSim no tiene proyectiles en tu proyecto, entonces aquí no hacemos nada.
+                return;
+            }
+
+            // HYBRID: Launch in FuelSim
+            double robotHeadingRadians = shotParameters.robotPoseField().getRotation().getRadians();
+
+            FuelSim.getInstance().launchFuel(
+                Units.MetersPerSecond.of(shotParameters.exitSpeedMetersPerSecond()),
+                Units.Radians.of(shotParameters.hoodAngleRadiansFromBallisticModel()),
+                Units.Radians.of(robotHeadingRadians),
+                Units.Meters.of(shotParameters.launchHeightMeters())
+            );
+        });
+    }
 }
