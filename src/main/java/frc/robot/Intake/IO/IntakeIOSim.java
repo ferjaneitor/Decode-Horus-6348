@@ -25,6 +25,12 @@ public final class IntakeIOSim implements IntakeIO {
     private double rollerVoltageCommandVolts = 0.0;
     private double pivotVoltageCommandVolts = 0.0;
 
+    // Raw encoder offset (so "zeroing" works consistently)
+    private double pivotRawEncoderPositionOffsetRotations = 0.0;
+
+    // Cached for calibration helper
+    private double lastPivotAngleRadians = IntakeConstants.PIVOT_SIM_START_ANGLE_RADIANS;
+
     public IntakeIOSim(AbstractDriveTrainSimulation driveTrainSimulation) {
         this.pivotArmMechanismSimulation = new SingleJointedArmSim(
                 DCMotor.getNEO(1),
@@ -57,6 +63,9 @@ public final class IntakeIOSim implements IntakeIO {
         pivotArmMechanismSimulation.setInputVoltage(clampedPivotVoltageVolts);
         pivotArmMechanismSimulation.update(SIMULATION_TIME_STEP_SECONDS);
 
+        lastPivotAngleRadians = pivotArmMechanismSimulation.getAngleRads();
+
+        // Roller model (simple)
         double clampedRollerVoltageVolts =
                 MathUtil.clamp(rollerVoltageCommandVolts, -batteryBusVoltageVolts, batteryBusVoltageVolts);
 
@@ -75,12 +84,28 @@ public final class IntakeIOSim implements IntakeIO {
         intakeInputs.rollerAppliedVolts = clampedRollerVoltageVolts;
         intakeInputs.rollerCurrentAmps = rollerCurrentAmps;
 
+        // Pivot normalized position 0..1 based on physical angle
+        double normalizedPivotPositionRotations = getNormalizedPivotPositionRotationsFromAngleRadians(lastPivotAngleRadians);
+        double normalizedPivotVelocityRotationsPerSecond =
+                getNormalizedPivotVelocityRotationsPerSecondFromVelocityRadiansPerSecond(
+                        pivotArmMechanismSimulation.getVelocityRadPerSec()
+                );
+
         intakeInputs.pivotConnected = true;
-        intakeInputs.pivotPositionRotations = pivotArmMechanismSimulation.getAngleRads() / (2.0 * Math.PI);
-        intakeInputs.pivotVelocityRotationsPerSecond = pivotArmMechanismSimulation.getVelocityRadPerSec() / (2.0 * Math.PI);
+        intakeInputs.pivotPositionRotations = normalizedPivotPositionRotations;
+        intakeInputs.pivotVelocityRotationsPerSecond = normalizedPivotVelocityRotationsPerSecond;
         intakeInputs.pivotAppliedVolts = clampedPivotVoltageVolts;
         intakeInputs.pivotCurrentAmps = Math.abs(pivotArmMechanismSimulation.getCurrentDrawAmps());
 
+        // Raw encoder (debug): angle expressed as rotations + offset
+        double rawEncoderPositionRotationsUnshifted = lastPivotAngleRadians / (2.0 * Math.PI);
+        double rawEncoderVelocityRotationsPerSecond = pivotArmMechanismSimulation.getVelocityRadPerSec() / (2.0 * Math.PI);
+
+        intakeInputs.pivotRawEncoderPositionRotations =
+                rawEncoderPositionRotationsUnshifted - pivotRawEncoderPositionOffsetRotations;
+        intakeInputs.pivotRawEncoderVelocityRotationsPerSecond = rawEncoderVelocityRotationsPerSecond;
+
+        // MapleSim pieces
         int fuelCountInsideIntake = intakeSimulation.getGamePiecesAmount();
         intakeInputs.fuelCountInsideIntake = fuelCountInsideIntake;
         intakeInputs.isFuelInsideIntake = fuelCountInsideIntake != 0;
@@ -107,6 +132,13 @@ public final class IntakeIOSim implements IntakeIO {
     }
 
     @Override
+    public void setPivotRawEncoderPositionRotations(double rawEncoderPositionRotations) {
+        // Shift offset so current raw reading becomes the requested raw reading
+        double currentRawEncoderPositionRotations = lastPivotAngleRadians / (2.0 * Math.PI);
+        pivotRawEncoderPositionOffsetRotations = currentRawEncoderPositionRotations - rawEncoderPositionRotations;
+    }
+
+    @Override
     public void setRunning(boolean runIntake) {
         if (runIntake && !isIntakeSimulationRunning) {
             intakeSimulation.startIntake();
@@ -123,5 +155,29 @@ public final class IntakeIOSim implements IntakeIO {
     @Override
     public boolean isFuelInsideIntake() {
         return intakeSimulation.getGamePiecesAmount() != 0;
+    }
+
+    private static double getNormalizedPivotPositionRotationsFromAngleRadians(double pivotAngleRadians) {
+        double retractAngleRadians = IntakeConstants.PIVOT_SIM_RETRACT_ANGLE_RADIANS;
+        double deployAngleRadians = IntakeConstants.PIVOT_SIM_DEPLOY_ANGLE_RADIANS;
+
+        double denominator = deployAngleRadians - retractAngleRadians;
+        if (Math.abs(denominator) < 1e-9) {
+            return 0.0;
+        }
+
+        return (pivotAngleRadians - retractAngleRadians) / denominator;
+    }
+
+    private static double getNormalizedPivotVelocityRotationsPerSecondFromVelocityRadiansPerSecond(double pivotVelocityRadiansPerSecond) {
+        double retractAngleRadians = IntakeConstants.PIVOT_SIM_RETRACT_ANGLE_RADIANS;
+        double deployAngleRadians = IntakeConstants.PIVOT_SIM_DEPLOY_ANGLE_RADIANS;
+
+        double denominator = deployAngleRadians - retractAngleRadians;
+        if (Math.abs(denominator) < 1e-9) {
+            return 0.0;
+        }
+
+        return pivotVelocityRadiansPerSecond / denominator;
     }
 }

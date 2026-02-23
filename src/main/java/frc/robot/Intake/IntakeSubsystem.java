@@ -2,6 +2,7 @@ package frc.robot.Intake;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import org.littletonrobotics.junction.Logger;
@@ -15,68 +16,86 @@ public final class IntakeSubsystem extends SubsystemBase {
     private final IntakeIO intakeHardwareInterface;
     private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
 
-    // Roller request
     private boolean isRollerEnabledRequest = false;
 
-    // Pivot request
-    private double pivotTargetPositionRotationsRequest = IntakeConstants.PIVOT_RETRACT_POSITION_ROT;
+    // normalized 0..1 rotations
+    private double pivotTargetPositionRotationsRequest = IntakeConstants.PIVOT_RETRACT_POSITION_ROTATIONS;
 
-    // Simple PID (RIO)
     private final PIDController pivotPositionController =
             new PIDController(
-                    IntakeConstants.PIVOT_POSITION_PID_PROPORTIONAL_GAIN,
-                    IntakeConstants.PIVOT_POSITION_PID_INTEGRAL_GAIN,
-                    IntakeConstants.PIVOT_POSITION_PID_DERIVATIVE_GAIN
+                    IntakeConstants.PIVOT_POSITION_PROPORTIONAL_GAIN,
+                    IntakeConstants.PIVOT_POSITION_INTEGRAL_GAIN,
+                    IntakeConstants.PIVOT_POSITION_DERIVATIVE_GAIN
             );
 
-    // State flags
     private boolean isFullyDeployed = false;
     private boolean isFullyRetracted = true;
 
+    private boolean didBootInitialization = false;
+
     public IntakeSubsystem(IntakeIO intakeHardwareInterface) {
         this.intakeHardwareInterface = intakeHardwareInterface;
-
-        // Opcional: evita windup si un día le metes integral
         pivotPositionController.setIntegratorRange(-12.0, 12.0);
     }
 
     @Override
     public void periodic() {
-        // Read sensors / sim
         intakeHardwareInterface.updateInputs(inputs);
 
-        // Update state flags
+        if (!didBootInitialization) {
+            performBootInitialization();
+            didBootInitialization = true;
+        }
+
+        if (DriverStation.isDisabled()) {
+            intakeHardwareInterface.stopRoller();
+            intakeHardwareInterface.stopPivot();
+            pivotPositionController.reset();
+            intakeHardwareInterface.setRunning(false);
+            Logger.processInputs("Intake", inputs);
+            return;
+        }
+
         updateDeploymentStateFromPosition();
-
-        // Apply pivot PID ALWAYS (this is the whole point)
-        applyPivotPidControl();
-
-        // Apply roller
+        applyPivotPidControlOnly();
         applyRollerControl();
-
-        // MapleSim intake on/off (SIM)
         applyMapleSimIntakeState();
 
-        // Log
         Logger.processInputs("Intake", inputs);
     }
 
-    private void applyPivotPidControl() {
+    private void performBootInitialization() {
+        if (IntakeConstants.PIVOT_ZERO_ENCODER_ON_BOOT_TO_RETRACT) {
+            intakeHardwareInterface.setPivotRawEncoderPositionRotations(IntakeConstants.PIVOT_RAW_ENCODER_RETRACT_ROTATIONS);
+        }
+        pivotTargetPositionRotationsRequest = IntakeConstants.PIVOT_RETRACT_POSITION_ROTATIONS;
+        pivotPositionController.reset();
+    }
+
+    private void applyPivotPidControlOnly() {
         double measuredPositionRotations = inputs.pivotPositionRotations;
 
-        double feedbackVolts =
-                pivotPositionController.calculate(
-                        measuredPositionRotations,
-                        pivotTargetPositionRotationsRequest
+        double clampedTargetRotations =
+                MathUtil.clamp(
+                        pivotTargetPositionRotationsRequest,
+                        IntakeConstants.PIVOT_SOFT_LIMIT_MINIMUM_ROTATIONS,
+                        IntakeConstants.PIVOT_SOFT_LIMIT_MAXIMUM_ROTATIONS
                 );
 
-        double totalCommandedVolts = MathUtil.clamp(feedbackVolts, -12.0, 12.0);
+        double feedbackVolts =
+                pivotPositionController.calculate(measuredPositionRotations, clampedTargetRotations);
+
+        double totalCommandedVolts =
+                MathUtil.clamp(
+                        feedbackVolts,
+                        -IntakeConstants.PIVOT_CONTROL_MAXIMUM_ABSOLUTE_VOLTAGE_VOLTS,
+                        IntakeConstants.PIVOT_CONTROL_MAXIMUM_ABSOLUTE_VOLTAGE_VOLTS
+                );
 
         intakeHardwareInterface.setPivotVoltage(totalCommandedVolts);
 
-        // Telemetry
-        inputs.pivotTargetPositionRotations = pivotTargetPositionRotationsRequest;
-        inputs.pivotPositionErrorRotations = pivotTargetPositionRotationsRequest - measuredPositionRotations;
+        inputs.pivotTargetPositionRotations = clampedTargetRotations;
+        inputs.pivotPositionErrorRotations = clampedTargetRotations - measuredPositionRotations;
         inputs.pivotFeedbackVolts = feedbackVolts;
         inputs.pivotTotalCommandedVolts = totalCommandedVolts;
     }
@@ -86,11 +105,11 @@ public final class IntakeSubsystem extends SubsystemBase {
             intakeHardwareInterface.stopRoller();
             return;
         }
-        intakeHardwareInterface.setRollerVoltage(IntakeConstants.INTAKE_ACTIVATION_VOLTAGE);
+        intakeHardwareInterface.setRollerVoltage(IntakeConstants.INTAKE_ACTIVATION_VOLTAGE_VOLTS);
     }
 
     private void applyMapleSimIntakeState() {
-        // En REAL es no-op.
+        // Only run MapleSim intake when roller is enabled and intake is deployed
         boolean shouldRunIntakeSimulation = isRollerEnabledRequest && isFullyDeployed;
         intakeHardwareInterface.setRunning(shouldRunIntakeSimulation);
     }
@@ -98,11 +117,11 @@ public final class IntakeSubsystem extends SubsystemBase {
     private void updateDeploymentStateFromPosition() {
         double positionRotations = inputs.pivotPositionRotations;
 
-        double deployTargetRotations = IntakeConstants.PIVOT_DEPLOY_POSITION_ROT;
-        double retractTargetRotations = IntakeConstants.PIVOT_RETRACT_POSITION_ROT;
+        double deployTargetRotations = IntakeConstants.PIVOT_DEPLOY_POSITION_ROTATIONS;
+        double retractTargetRotations = IntakeConstants.PIVOT_RETRACT_POSITION_ROTATIONS;
 
-        double toleranceRotations = IntakeConstants.PIVOT_POSITION_TOLERANCE_ROT;
-        double hysteresisRotations = IntakeConstants.PIVOT_POSITION_HYSTERESIS_ROT;
+        double toleranceRotations = IntakeConstants.PIVOT_POSITION_TOLERANCE_ROTATIONS;
+        double hysteresisRotations = IntakeConstants.PIVOT_POSITION_HYSTERESIS_ROTATIONS;
 
         boolean isAtDeploy = positionRotations >= (deployTargetRotations - toleranceRotations);
         boolean isAtRetract = positionRotations <= (retractTargetRotations + toleranceRotations);
@@ -122,14 +141,14 @@ public final class IntakeSubsystem extends SubsystemBase {
         }
     }
 
-    // ---------------- Requests (called by Commands) ----------------
+    // ---------------- Requests ----------------
 
     public void requestDeployIntake() {
-        pivotTargetPositionRotationsRequest = IntakeConstants.PIVOT_DEPLOY_POSITION_ROT;
+        pivotTargetPositionRotationsRequest = IntakeConstants.PIVOT_DEPLOY_POSITION_ROTATIONS;
     }
 
     public void requestRetractIntake() {
-        pivotTargetPositionRotationsRequest = IntakeConstants.PIVOT_RETRACT_POSITION_ROT;
+        pivotTargetPositionRotationsRequest = IntakeConstants.PIVOT_RETRACT_POSITION_ROTATIONS;
     }
 
     public void setRollerEnabled(boolean enabled) {

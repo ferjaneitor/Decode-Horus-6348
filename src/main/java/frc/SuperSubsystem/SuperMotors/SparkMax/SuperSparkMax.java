@@ -267,7 +267,19 @@ public final class SuperSparkMax {
     }
 
     public void positionControlVoltage(double desiredPositionRotations) {
-    PIDPositionControl(desiredPositionRotations);
-}
+        PIDPositionControl(desiredPositionRotations);
+    }
+
+    public void setRelativeEncoderPositionRotations(double desiredPositionRotations) {
+        getSparkBase().getEncoder().setPosition(desiredPositionRotations);
+
+        positionPidController.reset();
+        feedbackController.reset();
+        motionProfileRunner.cancel();
+
+        lastFeedforwardVolts = 0.0;
+        lastFeedbackVolts = 0.0;
+        lastTotalCommandedVolts = 0.0;
+    }
 
 }

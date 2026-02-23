@@ -4,6 +4,7 @@ import com.revrobotics.spark.SparkBase;
 import edu.wpi.first.math.filter.Debouncer;
 
 import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
+import frc.robot.Constants.IntakeConstants;
 import frc.robot.Util.SparkUtil;
 
 import static frc.robot.Util.SparkUtil.ifOk;
@@ -54,16 +55,26 @@ public final class IntakeIOSpark implements IntakeIO {
         SparkBase pivotSparkBase = pivotMotorController.getSparkBase();
 
         SparkUtil.sparkStickyFault = false;
+
+        final double[] pivotRawEncoderPositionRotationsHolder = new double[] {0.0};
+        final double[] pivotRawEncoderVelocityRotationsPerSecondHolder = new double[] {0.0};
+
         ifOk(
                 pivotSparkBase,
                 pivotMotorController::getRelativeEncoderPosition,
-                (value) -> intakeInputs.pivotPositionRotations = value
+                (value) -> {
+                    pivotRawEncoderPositionRotationsHolder[0] = value;
+                    intakeInputs.pivotRawEncoderPositionRotations = value;
+                }
         );
 
         ifOk(
                 pivotSparkBase,
                 pivotMotorController::getRelativeEncoderVelocity,
-                (value) -> intakeInputs.pivotVelocityRotationsPerSecond = value
+                (value) -> {
+                    pivotRawEncoderVelocityRotationsPerSecondHolder[0] = value;
+                    intakeInputs.pivotRawEncoderVelocityRotationsPerSecond = value;
+                }
         );
 
         ifOk(
@@ -79,6 +90,15 @@ public final class IntakeIOSpark implements IntakeIO {
         );
 
         intakeInputs.pivotConnected = pivotConnectedDebouncer.calculate(!SparkUtil.sparkStickyFault);
+
+        // Convert raw encoder rotations -> normalized 0..1 rotations
+        intakeInputs.pivotPositionRotations =
+                getNormalizedPositionRotationsFromRawEncoderRotations(pivotRawEncoderPositionRotationsHolder[0]);
+
+        intakeInputs.pivotVelocityRotationsPerSecond =
+                getNormalizedVelocityRotationsPerSecondFromRawEncoderVelocityRotationsPerSecond(
+                        pivotRawEncoderVelocityRotationsPerSecondHolder[0]
+                );
 
         // MapleSim fields (REAL)
         intakeInputs.isFuelInsideIntake = false;
@@ -106,12 +126,43 @@ public final class IntakeIOSpark implements IntakeIO {
     }
 
     @Override
+    public void setPivotRawEncoderPositionRotations(double rawEncoderPositionRotations) {
+        pivotMotorController.setRelativeEncoderPositionRotations(rawEncoderPositionRotations);
+    }
+
+    @Override
     public void setRunning(boolean runIntake) {
-        // no-op en REAL
+        // no-op in REAL
     }
 
     @Override
     public boolean isFuelInsideIntake() {
         return false;
+    }
+
+    private static double getNormalizedPositionRotationsFromRawEncoderRotations(double rawEncoderRotations) {
+        double retractRaw = IntakeConstants.PIVOT_RAW_ENCODER_RETRACT_ROTATIONS;
+        double deployRaw = IntakeConstants.PIVOT_RAW_ENCODER_DEPLOY_ROTATIONS;
+
+        double denominator = deployRaw - retractRaw;
+        if (Math.abs(denominator) < 1e-9) {
+            return 0.0;
+        }
+
+        return (rawEncoderRotations - retractRaw) / denominator;
+    }
+
+    private static double getNormalizedVelocityRotationsPerSecondFromRawEncoderVelocityRotationsPerSecond(
+            double rawEncoderVelocityRotationsPerSecond
+    ) {
+        double retractRaw = IntakeConstants.PIVOT_RAW_ENCODER_RETRACT_ROTATIONS;
+        double deployRaw = IntakeConstants.PIVOT_RAW_ENCODER_DEPLOY_ROTATIONS;
+
+        double denominator = deployRaw - retractRaw;
+        if (Math.abs(denominator) < 1e-9) {
+            return 0.0;
+        }
+
+        return rawEncoderVelocityRotationsPerSecond / denominator;
     }
 }

@@ -352,25 +352,52 @@ public class Constants {
         public static final int INTAKE_MOTOR_ID = 4;
         public static final int PIVOT_INTAKE_MOTOR_ID = 5;
 
-        public static final double INTAKE_ACTIVATION_VOLTAGE = 12.0;
+        public static final double INTAKE_ACTIVATION_VOLTAGE_VOLTS = 12.0;
 
-        public static final double PIVOT_DEPLOY_POSITION_ROT = 1.0;
-        public static final double PIVOT_RETRACT_POSITION_ROT = 0.0;
+        // ---------------------------
+        // Your calibration-friendly space (normalized rotations 0..1)
+        // 0.0 = fully retracted, 1.0 = fully deployed
+        // ---------------------------
+        public static final double PIVOT_RETRACT_POSITION_ROTATIONS = 0.0;
+        public static final double PIVOT_DEPLOY_POSITION_ROTATIONS = 1.0;
 
-        public static final double PIVOT_POSITION_TOLERANCE_ROT = 0.02;
-        public static final double PIVOT_POSITION_HYSTERESIS_ROT = 0.02;
+        // Safety clamp (still in normalized rotations)
+        public static final double PIVOT_SOFT_LIMIT_MINIMUM_ROTATIONS = -0.10;
+        public static final double PIVOT_SOFT_LIMIT_MAXIMUM_ROTATIONS = 1.10;
 
-        // SIMPLE PID gains (RIO PID in Subsystem.periodic)
-        public static final double PIVOT_POSITION_PID_PROPORTIONAL_GAIN = 0.5;
-        public static final double PIVOT_POSITION_PID_INTEGRAL_GAIN = 0.0;
-        public static final double PIVOT_POSITION_PID_DERIVATIVE_GAIN = 0.0;
+        public static final double PIVOT_POSITION_TOLERANCE_ROTATIONS = 0.02;
+        public static final double PIVOT_POSITION_HYSTERESIS_ROTATIONS = 0.02;
 
-        // MapleSim intake geometry
+        // Simple PID gains (RIO PID in subsystem)
+        public static final double PIVOT_POSITION_PROPORTIONAL_GAIN = 0.5;
+        public static final double PIVOT_POSITION_INTEGRAL_GAIN = 0.0;
+        public static final double PIVOT_POSITION_DERIVATIVE_GAIN = 0.0;
+
+        public static final double PIVOT_CONTROL_MAXIMUM_ABSOLUTE_VOLTAGE_VOLTS = 12.0;
+
+        // ---------------------------
+        // REAL robot calibration placeholders (raw relative encoder rotations)
+        // normalized = (raw - retractRaw) / (deployRaw - retractRaw)
+        // ---------------------------
+        public static final double PIVOT_RAW_ENCODER_RETRACT_ROTATIONS = 0.0;
+        public static final double PIVOT_RAW_ENCODER_DEPLOY_ROTATIONS = 25.0;
+
+        // If you always boot with the intake physically retracted, this makes life easy.
+        public static final boolean PIVOT_ZERO_ENCODER_ON_BOOT_TO_RETRACT = true;
+
+        // ---------------------------
+        // SIM calibration (SingleJointedArmSim angles in radians)
+        // normalized = (angle - retractAngle) / (deployAngle - retractAngle)
+        // ---------------------------
+        public static final double PIVOT_SIM_RETRACT_ANGLE_RADIANS = 0.0;
+        public static final double PIVOT_SIM_DEPLOY_ANGLE_RADIANS = 1.57; // ~90 degrees, tweak later if you want
+
+        // MapleSim intake geometry (bounding box)
         public static final double MAPLESIM_INTAKE_WIDTH_METERS = 0.70;
         public static final double MAPLESIM_INTAKE_EXTENSION_METERS = 0.20;
         public static final int MAPLESIM_INTAKE_CAPACITY = 1;
 
-        // Pivot sim (light arm)
+        // Pivot arm simulation model
         public static final double PIVOT_SIM_GEAR_REDUCTION = 60.0;
         public static final double PIVOT_SIM_MOMENT_OF_INERTIA = 0.002;
         public static final double PIVOT_SIM_ARM_LENGTH_METERS = 0.25;
@@ -390,12 +417,9 @@ public class Constants {
         public static final SparkMaxEntrys.SuperSparkMaxConfig PIVOT_INTAKE_MOTOR_CONFIG() {
             SuperSparkMaxConfig config = new SparkMaxEntrys.SuperSparkMaxConfig();
             config.kIsBrakeMode = true;
-
-            // Not using profiles and not using internal PID for position hold.
             config.kp = 0.0;
             config.ki = 0.0;
             config.kd = 0.0;
-
             return config;
         }
     }
