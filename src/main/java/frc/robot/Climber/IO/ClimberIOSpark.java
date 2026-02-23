@@ -1,12 +1,12 @@
-// File: src/main/java/frc/robot/Climber/ClimberIOSpark.java
 package frc.robot.Climber.IO;
 
 import com.revrobotics.spark.SparkBase;
-
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.Debouncer;
+
 import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
 import frc.robot.Util.SparkUtil;
+
 import static frc.robot.Util.SparkUtil.ifOk;
 
 public final class ClimberIOSpark implements ClimberIO {
@@ -20,6 +20,7 @@ public final class ClimberIOSpark implements ClimberIO {
     private final Debouncer rightClimberConnectedDebouncer =
             new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
+    // Stored requests (applied only when set* is called)
     private ClimberControlMode climberControlMode = ClimberControlMode.OPEN_LOOP_VOLTAGE;
 
     private double climberTargetPositionRotations = 0.0;
@@ -78,16 +79,7 @@ public final class ClimberIOSpark implements ClimberIO {
         climberInputs.rightClimberConnected =
                 rightClimberConnectedDebouncer.calculate(!SparkUtil.sparkStickyFault);
 
-        // ---------------- Control execution (runs every loop) ----------------
-        if (climberControlMode == ClimberControlMode.POSITION_PID) {
-            leftClimberMotorController.PIDPositionControl(climberTargetPositionRotations);
-            rightClimberMotorController.PIDPositionControl(climberTargetPositionRotations);
-        } else {
-            leftClimberMotorController.setVoltage(climberAppliedVoltageCommandVolts);
-            rightClimberMotorController.setVoltage(climberAppliedVoltageCommandVolts);
-        }
-
-        // ---------------- Control telemetry ----------------
+        // ---------------- Control telemetry (mirrors requests) ----------------
         climberInputs.climberControlMode = climberControlMode;
         climberInputs.climberTargetPositionRotations = climberTargetPositionRotations;
         climberInputs.climberAppliedVoltageCommandVolts = climberAppliedVoltageCommandVolts;
@@ -103,17 +95,32 @@ public final class ClimberIOSpark implements ClimberIO {
     public void setClimberVoltage(double voltage) {
         climberControlMode = ClimberControlMode.OPEN_LOOP_VOLTAGE;
         climberAppliedVoltageCommandVolts = MathUtil.clamp(voltage, -12.0, 12.0);
+
+        leftClimberMotorController.setVoltage(climberAppliedVoltageCommandVolts);
+        rightClimberMotorController.setVoltage(climberAppliedVoltageCommandVolts);
     }
 
     @Override
     public void stopClimber() {
         climberControlMode = ClimberControlMode.OPEN_LOOP_VOLTAGE;
         climberAppliedVoltageCommandVolts = 0.0;
+
+        leftClimberMotorController.setVoltage(0.0);
+        rightClimberMotorController.setVoltage(0.0);
     }
 
     @Override
     public void setClimberPositionPidRotations(double targetPositionRotations) {
         climberControlMode = ClimberControlMode.POSITION_PID;
         climberTargetPositionRotations = targetPositionRotations;
+
+        leftClimberMotorController.PIDPositionControl(climberTargetPositionRotations);
+        rightClimberMotorController.PIDPositionControl(climberTargetPositionRotations);
+    }
+
+    @Override
+    public void setClimberRawEncoderPositionRotations(double leftPositionRotations, double rightPositionRotations) {
+        leftClimberMotorController.setRelativeEncoderPositionRotations(leftPositionRotations);
+        rightClimberMotorController.setRelativeEncoderPositionRotations(rightPositionRotations);
     }
 }

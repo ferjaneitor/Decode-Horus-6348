@@ -1,4 +1,3 @@
-// File: src/main/java/frc/robot/Climber/ClimberIO.java
 package frc.robot.Climber.IO;
 
 import org.littletonrobotics.junction.AutoLog;
@@ -26,12 +25,12 @@ public interface ClimberIO {
         public double rightClimberAppliedVolts = 0.0;
         public double rightClimberCurrentAmps = 0.0;
 
-        // Control state
+        // Control state (for logging)
         public ClimberControlMode climberControlMode = ClimberControlMode.OPEN_LOOP_VOLTAGE;
         public double climberTargetPositionRotations = 0.0;
         public double climberAppliedVoltageCommandVolts = 0.0;
 
-        // Simple control telemetry (mirrors SuperSparkMax telemetry)
+        // PID telemetry
         public double leftFeedbackVolts = 0.0;
         public double leftTotalCommandedVolts = 0.0;
 
@@ -45,4 +44,7 @@ public interface ClimberIO {
     public default void stopClimber() {}
 
     public default void setClimberPositionPidRotations(double targetPositionRotations) {}
+
+    // Calibration helper (REAL should implement; SIM can implement as offset)
+    public default void setClimberRawEncoderPositionRotations(double leftPositionRotations, double rightPositionRotations) {}
 }

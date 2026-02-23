@@ -2,7 +2,8 @@ package frc.robot.Climber;
 
 import edu.wpi.first.wpilibj2.command.Command;
 
-public class AutoExpandClimber extends Command {
+public final class AutoExpandClimber extends Command {
+
     private final ClimberSubsystem climberSubsystem;
 
     public AutoExpandClimber(ClimberSubsystem climberSubsystem) {
@@ -10,29 +11,23 @@ public class AutoExpandClimber extends Command {
         addRequirements(climberSubsystem);
     }
 
-     @Override
-  public void initialize() {
-    // Code to deploy the intake mechanism
-  }
+    @Override
+    public void initialize() {
+        climberSubsystem.autoExpand();
+    }
 
-  @Override
+    @Override
     public void execute() {
-        // Code to keep the intake deployed if necessary
-        if (!climberSubsystem.isClimberExtended()) {
-            climberSubsystem.AutoExpand();
-        }
+        climberSubsystem.autoExpand();
     }
 
     @Override
     public void end(boolean interrupted) {
-        // Code to stop the intake mechanism if necessary
         climberSubsystem.stop();
     }
 
     @Override
     public boolean isFinished() {
-        // Return true when the intake is fully deployed, or false if it should run indefinitely
-        return climberSubsystem.isClimberExtended(); // Check if the intake is fully deployed
+        return climberSubsystem.isClimberExtended();
     }
-    
 }

@@ -1,11 +1,13 @@
-// File: src/main/java/frc/robot/Climber/ClimberSubsystem.java
 package frc.robot.Climber;
 
 import org.littletonrobotics.junction.Logger;
 
 import com.revrobotics.spark.SparkLowLevel;
 
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+
 import frc.AutoLogger.ClimberIOInputsAutoLogged;
 import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
 import frc.robot.Climber.IO.ClimberIO;
@@ -15,9 +17,13 @@ import frc.robot.Constants.ClimberConstants;
 
 public final class ClimberSubsystem extends SubsystemBase {
 
-    // Tolerance-only state detection (no hysteresis)
-    private static final double CLIMBER_POSITION_TOLERANCE_ROTATIONS = 0.05;
     private static final double CLIMBER_RETRACTED_TARGET_ROTATIONS = 0.0;
+
+    private static final double CLIMBER_POSITION_TOLERANCE_ROTATIONS = 0.05;
+    private static final double CLIMBER_POSITION_HYSTERESIS_ROTATIONS = 0.05;
+
+    private static final double CLIMBER_SOFT_LIMIT_MINIMUM_ROTATIONS = -0.10;
+    private static final double CLIMBER_SOFT_LIMIT_MAXIMUM_ROTATIONS = ClimberConstants.CLIMBER_EXTENDED_POSITION + 0.10;
 
     private final ClimberIO climberHardwareInterface;
     private final ClimberIOInputsAutoLogged inputs = new ClimberIOInputsAutoLogged();
@@ -25,14 +31,13 @@ public final class ClimberSubsystem extends SubsystemBase {
     private boolean isFullyExtended = false;
     private boolean isFullyRetracted = true;
 
-    private double lastRequestedClimberTargetRotations = 0.0;
+    private double lastRequestedClimberTargetRotations = CLIMBER_RETRACTED_TARGET_ROTATIONS;
 
     private static final double OPEN_LOOP_VOLTAGE_VOLTS =
             Constants.BATTERY_VOLTAGE * ClimberConstants.CLIMBER_MAX_DUTY_CYCLE;
 
-    /**
-     * Convenience constructor that builds Spark-based IO (same as your original subsystem did).
-     */
+    private boolean didBootInitialization = false;
+
     public ClimberSubsystem() {
         this(
                 new ClimberIOSpark(
@@ -52,7 +57,6 @@ public final class ClimberSubsystem extends SubsystemBase {
 
     public ClimberSubsystem(ClimberIO climberHardwareInterface) {
         this.climberHardwareInterface = climberHardwareInterface;
-        this.lastRequestedClimberTargetRotations = CLIMBER_RETRACTED_TARGET_ROTATIONS;
     }
 
     @Override
@@ -60,51 +64,48 @@ public final class ClimberSubsystem extends SubsystemBase {
         climberHardwareInterface.updateInputs(inputs);
         Logger.processInputs("Climber", inputs);
 
+        if (!didBootInitialization) {
+            performBootInitialization();
+            didBootInitialization = true;
+        }
+
+        if (DriverStation.isDisabled()) {
+            climberHardwareInterface.stopClimber();
+            return;
+        }
+
         updateExtensionStateFromPosition();
     }
 
+    private void performBootInitialization() {
+        // Dejamos el encoder “cero” en retract (como intake).
+        // En real, asume que arrancas retracted.
+        climberHardwareInterface.setClimberRawEncoderPositionRotations(0.0, 0.0);
+        lastRequestedClimberTargetRotations = CLIMBER_RETRACTED_TARGET_ROTATIONS;
+    }
+
     private void updateExtensionStateFromPosition() {
-        double leftPositionRotations = inputs.leftClimberPositionRotations;
-        double rightPositionRotations = inputs.rightClimberPositionRotations;
-        double averagePositionRotations = (leftPositionRotations + rightPositionRotations) * 0.5;
+        double averagePositionRotations = getAverageClimberPositionRotations();
 
         double extendedTargetRotations = ClimberConstants.CLIMBER_EXTENDED_POSITION;
         double retractedTargetRotations = CLIMBER_RETRACTED_TARGET_ROTATIONS;
 
-        boolean isAtExtended =
-                averagePositionRotations >= (extendedTargetRotations - CLIMBER_POSITION_TOLERANCE_ROTATIONS);
+        boolean isAtExtended = averagePositionRotations >= (extendedTargetRotations - CLIMBER_POSITION_TOLERANCE_ROTATIONS);
+        boolean isAtRetracted = averagePositionRotations <= (retractedTargetRotations + CLIMBER_POSITION_TOLERANCE_ROTATIONS);
 
-        boolean isAtRetracted =
-                averagePositionRotations <= (retractedTargetRotations + CLIMBER_POSITION_TOLERANCE_ROTATIONS);
-
-        // Resolve state with tolerance only (no hysteresis).
-        // If both are true (overlap due to config/tolerance), choose the closer target.
-        if (isAtExtended && !isAtRetracted) {
+        if (isAtExtended) {
             isFullyExtended = true;
             isFullyRetracted = false;
-            return;
+        } else if (averagePositionRotations < (extendedTargetRotations - CLIMBER_POSITION_TOLERANCE_ROTATIONS - CLIMBER_POSITION_HYSTERESIS_ROTATIONS)) {
+            isFullyExtended = false;
         }
 
-        if (isAtRetracted && !isAtExtended) {
+        if (isAtRetracted) {
             isFullyRetracted = true;
             isFullyExtended = false;
-            return;
+        } else if (averagePositionRotations > (retractedTargetRotations + CLIMBER_POSITION_TOLERANCE_ROTATIONS + CLIMBER_POSITION_HYSTERESIS_ROTATIONS)) {
+            isFullyRetracted = false;
         }
-
-        if (isAtExtended && isAtRetracted) {
-            double distanceToExtended = Math.abs(extendedTargetRotations - averagePositionRotations);
-            double distanceToRetracted = Math.abs(averagePositionRotations - retractedTargetRotations);
-
-            boolean shouldPreferExtended = distanceToExtended <= distanceToRetracted;
-
-            isFullyExtended = shouldPreferExtended;
-            isFullyRetracted = !shouldPreferExtended;
-            return;
-        }
-
-        // In between: neither fully extended nor fully retracted
-        isFullyExtended = false;
-        isFullyRetracted = false;
     }
 
     // ---------------- Manual open-loop control ----------------
@@ -121,23 +122,26 @@ public final class ClimberSubsystem extends SubsystemBase {
         climberHardwareInterface.stopClimber();
     }
 
-    // ---------------- Auto (PID simple, like Intake) ----------------
+    // ---------------- Auto (PID simple) ----------------
 
     private void autoControlMotors(double desiredPositionRotations) {
-        lastRequestedClimberTargetRotations = desiredPositionRotations;
+        double clampedTargetRotations =
+                MathUtil.clamp(
+                        desiredPositionRotations,
+                        CLIMBER_SOFT_LIMIT_MINIMUM_ROTATIONS,
+                        CLIMBER_SOFT_LIMIT_MAXIMUM_ROTATIONS
+                );
+
+        lastRequestedClimberTargetRotations = clampedTargetRotations;
         climberHardwareInterface.setClimberPositionPidRotations(lastRequestedClimberTargetRotations);
     }
 
-    public void AutoExpand() {
-        if (!isFullyExtended) {
-            autoControlMotors(ClimberConstants.CLIMBER_EXTENDED_POSITION);
-        }
+    public void autoExpand() {
+        autoControlMotors(ClimberConstants.CLIMBER_EXTENDED_POSITION);
     }
 
-    public void AutoRetract() {
-        if (!isFullyRetracted) {
-            autoControlMotors(CLIMBER_RETRACTED_TARGET_ROTATIONS);
-        }
+    public void autoRetract() {
+        autoControlMotors(CLIMBER_RETRACTED_TARGET_ROTATIONS);
     }
 
     // ---------------- State ----------------
@@ -160,5 +164,9 @@ public final class ClimberSubsystem extends SubsystemBase {
 
     public boolean isClimberRetracted() {
         return isFullyRetracted;
+    }
+
+    public double getLastRequestedTargetRotations() {
+        return lastRequestedClimberTargetRotations;
     }
 }

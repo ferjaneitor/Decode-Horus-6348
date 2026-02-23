@@ -1,4 +1,3 @@
-// File: src/main/java/frc/robot/Climber/ClimberIOSim.java
 package frc.robot.Climber.IO;
 
 import edu.wpi.first.math.MathUtil;
@@ -6,17 +5,10 @@ import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.wpilibj.RobotController;
 import frc.robot.Constants.ClimberConstants;
 
-/**
- * Lightweight climber sim for AdvantageScope:
- * - Two independent sides (left/right) with a simple first-order velocity response.
- * - Optional POSITION_PID mode using WPILib PIDController (software PID).
- * - Not a full physics model; it's stable and "reasonable" for telemetry and command testing.
- */
 public final class ClimberIOSim implements ClimberIO {
 
     private static final double SIMULATION_TIME_STEP_SECONDS = 0.02;
 
-    // Tuning knobs for the fake mechanism response
     private static final double MAXIMUM_VELOCITY_ROTATIONS_PER_SECOND = 25.0;
     private static final double VELOCITY_RESPONSE_TIME_CONSTANT_SECONDS = 0.15;
 
@@ -41,8 +33,6 @@ public final class ClimberIOSim implements ClimberIO {
     private double lastRightTotalCommandedVolts = 0.0;
 
     public ClimberIOSim() {
-        // If you want different gains than your Spark config, change these.
-        // Otherwise, keep them aligned with your SuperSparkMaxConfig values.
         leftPositionController = new PIDController(
                 ClimberConstants.CLIMBER_MOTOR_CONFIG().kp,
                 ClimberConstants.CLIMBER_MOTOR_CONFIG().ki,
@@ -54,23 +44,36 @@ public final class ClimberIOSim implements ClimberIO {
                 ClimberConstants.CLIMBER_MOTOR_CONFIG().ki,
                 ClimberConstants.CLIMBER_MOTOR_CONFIG().kd
         );
+
+        leftPositionController.setIntegratorRange(-12.0, 12.0);
+        rightPositionController.setIntegratorRange(-12.0, 12.0);
     }
 
     @Override
     public void updateInputs(ClimberIOInputs climberInputs) {
         double batteryBusVoltageVolts = RobotController.getBatteryVoltage();
 
+        double minimumPositionRotations = 0.0;
+        double maximumPositionRotations = ClimberConstants.CLIMBER_EXTENDED_POSITION;
+
+        double clampedTargetRotations =
+                MathUtil.clamp(climberTargetPositionRotations, minimumPositionRotations, maximumPositionRotations);
+
         double leftCommandedVoltageVolts;
         double rightCommandedVoltageVolts;
 
         if (climberControlMode == ClimberControlMode.POSITION_PID) {
             lastLeftFeedbackVolts =
-                    leftPositionController.calculate(leftClimberPositionRotations, climberTargetPositionRotations);
-            lastRightFeedbackVolts =
-                    rightPositionController.calculate(rightClimberPositionRotations, climberTargetPositionRotations);
+                    leftPositionController.calculate(leftClimberPositionRotations, clampedTargetRotations);
 
-            leftCommandedVoltageVolts = MathUtil.clamp(lastLeftFeedbackVolts, -batteryBusVoltageVolts, batteryBusVoltageVolts);
-            rightCommandedVoltageVolts = MathUtil.clamp(lastRightFeedbackVolts, -batteryBusVoltageVolts, batteryBusVoltageVolts);
+            lastRightFeedbackVolts =
+                    rightPositionController.calculate(rightClimberPositionRotations, clampedTargetRotations);
+
+            leftCommandedVoltageVolts =
+                    MathUtil.clamp(lastLeftFeedbackVolts, -batteryBusVoltageVolts, batteryBusVoltageVolts);
+
+            rightCommandedVoltageVolts =
+                    MathUtil.clamp(lastRightFeedbackVolts, -batteryBusVoltageVolts, batteryBusVoltageVolts);
 
             lastLeftTotalCommandedVolts = leftCommandedVoltageVolts;
             lastRightTotalCommandedVolts = rightCommandedVoltageVolts;
@@ -81,27 +84,19 @@ public final class ClimberIOSim implements ClimberIO {
             lastLeftFeedbackVolts = 0.0;
             lastRightFeedbackVolts = 0.0;
 
-            leftCommandedVoltageVolts = MathUtil.clamp(climberAppliedVoltageCommandVolts, -batteryBusVoltageVolts, batteryBusVoltageVolts);
-            rightCommandedVoltageVolts = MathUtil.clamp(climberAppliedVoltageCommandVolts, -batteryBusVoltageVolts, batteryBusVoltageVolts);
+            leftCommandedVoltageVolts =
+                    MathUtil.clamp(climberAppliedVoltageCommandVolts, -batteryBusVoltageVolts, batteryBusVoltageVolts);
+
+            rightCommandedVoltageVolts =
+                    MathUtil.clamp(climberAppliedVoltageCommandVolts, -batteryBusVoltageVolts, batteryBusVoltageVolts);
 
             lastLeftTotalCommandedVolts = leftCommandedVoltageVolts;
             lastRightTotalCommandedVolts = rightCommandedVoltageVolts;
         }
 
-        // ---------------- Update fake mechanism dynamics ----------------
-        updateSideSimulation(
-                leftCommandedVoltageVolts,
-                batteryBusVoltageVolts,
-                true
-        );
+        updateSideSimulation(leftCommandedVoltageVolts, batteryBusVoltageVolts, true);
+        updateSideSimulation(rightCommandedVoltageVolts, batteryBusVoltageVolts, false);
 
-        updateSideSimulation(
-                rightCommandedVoltageVolts,
-                batteryBusVoltageVolts,
-                false
-        );
-
-        // ---------------- Fill inputs ----------------
         climberInputs.leftClimberConnected = true;
         climberInputs.leftClimberPositionRotations = leftClimberPositionRotations;
         climberInputs.leftClimberVelocityRotationsPerSecond = leftClimberVelocityRotationsPerSecond;
@@ -115,7 +110,7 @@ public final class ClimberIOSim implements ClimberIO {
         climberInputs.rightClimberCurrentAmps = estimateCurrentAmps(rightCommandedVoltageVolts, batteryBusVoltageVolts);
 
         climberInputs.climberControlMode = climberControlMode;
-        climberInputs.climberTargetPositionRotations = climberTargetPositionRotations;
+        climberInputs.climberTargetPositionRotations = clampedTargetRotations;
         climberInputs.climberAppliedVoltageCommandVolts = climberAppliedVoltageCommandVolts;
 
         climberInputs.leftFeedbackVolts = lastLeftFeedbackVolts;
@@ -125,11 +120,7 @@ public final class ClimberIOSim implements ClimberIO {
         climberInputs.rightTotalCommandedVolts = lastRightTotalCommandedVolts;
     }
 
-    private void updateSideSimulation(
-            double commandedVoltageVolts,
-            double batteryBusVoltageVolts,
-            boolean isLeftSide
-    ) {
+    private void updateSideSimulation(double commandedVoltageVolts, double batteryBusVoltageVolts, boolean isLeftSide) {
         double commandedPercentOutput =
                 (Math.abs(batteryBusVoltageVolts) < 1e-6) ? 0.0 : (commandedVoltageVolts / batteryBusVoltageVolts);
 
@@ -144,7 +135,6 @@ public final class ClimberIOSim implements ClimberIO {
                             * (SIMULATION_TIME_STEP_SECONDS / VELOCITY_RESPONSE_TIME_CONSTANT_SECONDS);
 
             leftClimberPositionRotations += leftClimberVelocityRotationsPerSecond * SIMULATION_TIME_STEP_SECONDS;
-
             leftClimberPositionRotations = clampPosition(leftClimberPositionRotations);
         } else {
             rightClimberVelocityRotationsPerSecond +=
@@ -152,7 +142,6 @@ public final class ClimberIOSim implements ClimberIO {
                             * (SIMULATION_TIME_STEP_SECONDS / VELOCITY_RESPONSE_TIME_CONSTANT_SECONDS);
 
             rightClimberPositionRotations += rightClimberVelocityRotationsPerSecond * SIMULATION_TIME_STEP_SECONDS;
-
             rightClimberPositionRotations = clampPosition(rightClimberPositionRotations);
         }
     }
@@ -160,7 +149,6 @@ public final class ClimberIOSim implements ClimberIO {
     private double clampPosition(double positionRotations) {
         double minimumPositionRotations = 0.0;
         double maximumPositionRotations = ClimberConstants.CLIMBER_EXTENDED_POSITION;
-
         return MathUtil.clamp(positionRotations, minimumPositionRotations, maximumPositionRotations);
     }
 
@@ -168,9 +156,7 @@ public final class ClimberIOSim implements ClimberIO {
         if (Math.abs(batteryBusVoltageVolts) < 1e-6) {
             return 0.0;
         }
-
         double commandedPercentOutput = Math.abs(commandedVoltageVolts / batteryBusVoltageVolts);
-        // Very lightweight heuristic
         return 8.0 + 20.0 * commandedPercentOutput;
     }
 
@@ -190,5 +176,13 @@ public final class ClimberIOSim implements ClimberIO {
     public void setClimberPositionPidRotations(double targetPositionRotations) {
         climberControlMode = ClimberControlMode.POSITION_PID;
         climberTargetPositionRotations = targetPositionRotations;
+    }
+
+    @Override
+    public void setClimberRawEncoderPositionRotations(double leftPositionRotations, double rightPositionRotations) {
+        leftClimberPositionRotations = leftPositionRotations;
+        rightClimberPositionRotations = rightPositionRotations;
+        leftClimberVelocityRotationsPerSecond = 0.0;
+        rightClimberVelocityRotationsPerSecond = 0.0;
     }
 }
