@@ -7,7 +7,9 @@ import org.littletonrobotics.junction.inputs.LoggableInputs;
 
 import frc.SuperSubsystem.SuperVision.VisionIO;
 
-public class VisionIOInputsAutoLogged extends VisionIO.VisionIOInputs implements LoggableInputs, Cloneable {
+public class VisionIOInputsAutoLogged
+        extends VisionIO.VisionIOInputs
+        implements LoggableInputs, Cloneable {
 
     @Override
     public void toLog(LogTable table) {
@@ -29,34 +31,61 @@ public class VisionIOInputsAutoLogged extends VisionIO.VisionIOInputs implements
         table.put("DetectedTagIdentifiers", detectedTagIdentifiers);
 
         table.put("FramesPerSecond", framesPerSecond);
+
+        // IMPORTANT — missing before
+        table.put("HasTarget", hasTarget);
     }
 
     @Override
     public void fromLog(LogTable table) {
         cameraConnected = table.get("CameraConnected", cameraConnected);
 
-        latestTargetYawRadians = table.get("LatestTargetYawRadians", latestTargetYawRadians);
-        latestTargetPitchRadians = table.get("LatestTargetPitchRadians", latestTargetPitchRadians);
+        latestTargetYawRadians =
+                table.get("LatestTargetYawRadians", latestTargetYawRadians);
 
-        photonPoseEstimatorEnabled = table.get("PhotonPoseEstimatorEnabled", photonPoseEstimatorEnabled);
+        latestTargetPitchRadians =
+                table.get("LatestTargetPitchRadians", latestTargetPitchRadians);
 
-        observationTimestampsSeconds = table.get("ObservationTimestampsSeconds", observationTimestampsSeconds);
-        observationRobotPoses = table.get("ObservationRobotPoses", observationRobotPoses);
-        observationAmbiguities = table.get("ObservationAmbiguities", observationAmbiguities);
-        observationTagCounts = table.get("ObservationTagCounts", observationTagCounts);
+        photonPoseEstimatorEnabled =
+                table.get("PhotonPoseEstimatorEnabled", photonPoseEstimatorEnabled);
+
+        observationTimestampsSeconds =
+                table.get("ObservationTimestampsSeconds", observationTimestampsSeconds);
+
+        observationRobotPoses =
+                table.get("ObservationRobotPoses", observationRobotPoses);
+
+        observationAmbiguities =
+                table.get("ObservationAmbiguities", observationAmbiguities);
+
+        observationTagCounts =
+                table.get("ObservationTagCounts", observationTagCounts);
+
         observationAverageTagDistanceMeters =
-                table.get("ObservationAverageTagDistanceMeters", observationAverageTagDistanceMeters);
-        observationRotationTrusted = table.get("ObservationRotationTrusted", observationRotationTrusted);
-        observationTypeOrdinals = table.get("ObservationTypeOrdinals", observationTypeOrdinals);
+                table.get(
+                        "ObservationAverageTagDistanceMeters",
+                        observationAverageTagDistanceMeters);
 
-        detectedTagIdentifiers = table.get("DetectedTagIdentifiers", detectedTagIdentifiers);
+        observationRotationTrusted =
+                table.get("ObservationRotationTrusted", observationRotationTrusted);
 
-        framesPerSecond = table.get("FramesPerSecond", framesPerSecond);
+        observationTypeOrdinals =
+                table.get("ObservationTypeOrdinals", observationTypeOrdinals);
+
+        detectedTagIdentifiers =
+                table.get("DetectedTagIdentifiers", detectedTagIdentifiers);
+
+        framesPerSecond =
+                table.get("FramesPerSecond", framesPerSecond);
+
+        // IMPORTANT — restore state correctly
+        hasTarget = table.get("HasTarget", hasTarget);
     }
 
     @Override
     public VisionIOInputsAutoLogged clone() throws CloneNotSupportedException  {
         VisionIOInputsAutoLogged copy;
+
         try {
             copy = (VisionIOInputsAutoLogged) super.clone();
         } catch (CloneNotSupportedException exception) {
@@ -71,30 +100,49 @@ public class VisionIOInputsAutoLogged extends VisionIO.VisionIOInputs implements
         copy.photonPoseEstimatorEnabled = this.photonPoseEstimatorEnabled;
 
         copy.observationTimestampsSeconds =
-                Arrays.copyOf(this.observationTimestampsSeconds, this.observationTimestampsSeconds.length);
+                Arrays.copyOf(
+                        this.observationTimestampsSeconds,
+                        this.observationTimestampsSeconds.length);
 
         copy.observationRobotPoses =
-                Arrays.copyOf(this.observationRobotPoses, this.observationRobotPoses.length);
+                Arrays.copyOf(
+                        this.observationRobotPoses,
+                        this.observationRobotPoses.length);
 
         copy.observationAmbiguities =
-                Arrays.copyOf(this.observationAmbiguities, this.observationAmbiguities.length);
+                Arrays.copyOf(
+                        this.observationAmbiguities,
+                        this.observationAmbiguities.length);
 
         copy.observationTagCounts =
-                Arrays.copyOf(this.observationTagCounts, this.observationTagCounts.length);
+                Arrays.copyOf(
+                        this.observationTagCounts,
+                        this.observationTagCounts.length);
 
         copy.observationAverageTagDistanceMeters =
-                Arrays.copyOf(this.observationAverageTagDistanceMeters, this.observationAverageTagDistanceMeters.length);
+                Arrays.copyOf(
+                        this.observationAverageTagDistanceMeters,
+                        this.observationAverageTagDistanceMeters.length);
 
         copy.observationRotationTrusted =
-                Arrays.copyOf(this.observationRotationTrusted, this.observationRotationTrusted.length);
+                Arrays.copyOf(
+                        this.observationRotationTrusted,
+                        this.observationRotationTrusted.length);
 
         copy.observationTypeOrdinals =
-                Arrays.copyOf(this.observationTypeOrdinals, this.observationTypeOrdinals.length);
+                Arrays.copyOf(
+                        this.observationTypeOrdinals,
+                        this.observationTypeOrdinals.length);
 
         copy.detectedTagIdentifiers =
-                Arrays.copyOf(this.detectedTagIdentifiers, this.detectedTagIdentifiers.length);
+                Arrays.copyOf(
+                        this.detectedTagIdentifiers,
+                        this.detectedTagIdentifiers.length);
 
         copy.framesPerSecond = this.framesPerSecond;
+
+        // IMPORTANT — clone runtime state
+        copy.hasTarget = this.hasTarget;
 
         return copy;
     }

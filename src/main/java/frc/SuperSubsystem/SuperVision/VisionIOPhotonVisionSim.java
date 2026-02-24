@@ -1,22 +1,21 @@
 package frc.SuperSubsystem.SuperVision;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Transform3d;
-
 import java.util.function.Supplier;
 
-import org.photonvision.PhotonCamera;
 import org.photonvision.simulation.PhotonCameraSim;
 import org.photonvision.simulation.SimCameraProperties;
 import org.photonvision.simulation.VisionSystemSim;
+
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform3d;
 
 public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
 
     private static VisionSystemSim visionSystemSimulation;
 
     private final Supplier<Pose2d> robotPoseSupplier;
-    //@SuppressWarnings("unused")
     private final PhotonCameraSim photonCameraSimulation;
 
     public VisionIOPhotonVisionSim(
@@ -34,16 +33,49 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
             visionSystemSimulation.addAprilTags(aprilTagFieldLayout);
         }
 
-        SimCameraProperties simulationCameraProperties = new SimCameraProperties();
-        PhotonCamera photonCameraHandle = new PhotonCamera(cameraName);
+        SimCameraProperties simulationCameraProperties = createReasonableSimulationCameraProperties();
 
-        photonCameraSimulation = new PhotonCameraSim(photonCameraHandle, simulationCameraProperties, aprilTagFieldLayout);
-        visionSystemSimulation.addCamera(photonCameraSimulation, robotToCameraTransform3d);
+        // IMPORTANT:
+        // Use the same PhotonCamera instance that VisionIOPhotonVision owns.
+        // This avoids NT name collisions and “two handles for one camera” weirdness.
+        this.photonCameraSimulation =
+                new PhotonCameraSim(this.photonCamera, simulationCameraProperties, aprilTagFieldLayout);
+
+        visionSystemSimulation.addCamera(this.photonCameraSimulation, robotToCameraTransform3d);
     }
 
     @Override
     public void updateInputs(VisionIOInputs inputs) {
-        visionSystemSimulation.update(robotPoseSupplier.get());
+        Pose2d robotPose = robotPoseSupplier.get();
+
+        // PhotonVision sim can occasionally hit a degenerate geometry case (Rotation2d x=y=0).
+        // Do NOT allow that to crash the entire robot loop.
+        try {
+            visionSystemSimulation.update(robotPose);
+        } catch (Exception exception) {
+            // Leave inputs as-is; super.updateInputs will still read any valid frames
+            // from previous cycles if they exist.
+            // If you want, you can add a Logger line here.
+        }
+
         super.updateInputs(inputs);
+    }
+
+    private static SimCameraProperties createReasonableSimulationCameraProperties() {
+        SimCameraProperties simulationCameraProperties = new SimCameraProperties();
+
+        // These values do not need to be perfect; they just need to be non-degenerate and consistent.
+        int imageWidthPixels = 1280;
+        int imageHeightPixels = 720;
+        Rotation2d diagonalFieldOfViewRadians = Rotation2d.fromDegrees(100.0);
+
+        // NOTE: Depending on your PhotonVision version, method names may differ slightly.
+        // If your IDE says a method doesn't exist, tell me your PhotonVision version and I’ll adapt it.
+        simulationCameraProperties.setCalibration(imageWidthPixels, imageHeightPixels, diagonalFieldOfViewRadians);
+        simulationCameraProperties.setFPS(30.0);
+        simulationCameraProperties.setAvgLatencyMs(35.0);
+        simulationCameraProperties.setLatencyStdDevMs(5.0);
+
+        return simulationCameraProperties;
     }
 }
