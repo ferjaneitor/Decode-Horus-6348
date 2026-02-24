@@ -1,12 +1,5 @@
 package frc.robot;
 
-import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.Inches;
-import static edu.wpi.first.units.Units.KilogramSquareMeters;
-import static edu.wpi.first.units.Units.MetersPerSecond;
-import static edu.wpi.first.units.Units.Rotations;
-import static edu.wpi.first.units.Units.Volts;
-
 import java.util.List;
 
 import com.ctre.phoenix6.configs.Slot0Configs;
@@ -14,6 +7,12 @@ import com.ctre.phoenix6.configs.Slot0Configs;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Transform3d;
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.KilogramSquareMeters;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.Rotations;
+import static edu.wpi.first.units.Units.Volts;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Distance;
@@ -81,7 +80,7 @@ public class Constants {
         public static final boolean K_INVERT_LEFT_SIDE = false;
         public static final boolean K_INVERT_RIGHT_SIDE = true;
 
-        public static final int K_PIGEON_ID = 1;
+        public static final int K_PIGEON_ID = 13;
 
         // These are only used for simulation
         public static final MomentOfInertia kSteerInertia = KilogramSquareMeters.of(0.004);
@@ -90,13 +89,13 @@ public class Constants {
         public static final Voltage kSteerFrictionVoltage = Volts.of(0.2);
         public static final Voltage kDriveFrictionVoltage = Volts.of(0.2);
 
-        public static final Distance kTrackWidth = Inches.of(20);
-        public static final Distance kWheelBase = Inches.of(20);
+        public static final Distance kTrackWidth = Inches.of(27.5);
+        public static final Distance kWheelBase = Inches.of(27.5);
 
         // Front Left
-        public static final int K_FRONT_LEFT_DRIVE_MOTOR_ID = 3;
-        public static final int K_FRONT_LEFT_STEER_MOTOR_ID = 2;
-        public static final int K_FRONT_LEFT_ENCODER_ID = 1;
+        public static final int K_FRONT_LEFT_DRIVE_MOTOR_ID = 10;
+        public static final int K_FRONT_LEFT_STEER_MOTOR_ID = 6;
+        public static final int K_FRONT_LEFT_ENCODER_ID = 2;
         public static final Angle kFrontLeftEncoderOffset = Rotations.of(0.15234375);
         public static final boolean K_FRONT_LEFT_STEER_MOTOR_INVERTED = true;
         public static final boolean K_FRONT_LEFT_ENCODER_INVERTED = false;
@@ -105,9 +104,9 @@ public class Constants {
         public static final Distance kFrontLeftYPos = kTrackWidth.div(2);
 
         // Front Right
-        public static final int K_FRONT_RIGHT_DRIVE_MOTOR_ID = 1;
-        public static final int K_FRONT_RIGHT_STEER_MOTOR_ID = 0;
-        public static final int K_FRONT_RIGHT_ENCODER_ID = 0;
+        public static final int K_FRONT_RIGHT_DRIVE_MOTOR_ID = 9;
+        public static final int K_FRONT_RIGHT_STEER_MOTOR_ID = 5;
+        public static final int K_FRONT_RIGHT_ENCODER_ID = 1;
         public static final Angle kFrontRightEncoderOffset = Rotations.of(-0.4873046875);
         public static final boolean K_FRONT_RIGHT_STEER_MOTOR_INVERTED = true;
         public static final boolean K_FRONT_RIGHT_ENCODER_INVERTED = false;
@@ -116,8 +115,8 @@ public class Constants {
         public static final Distance kFrontRightYPos = kTrackWidth.div(-2);
 
         // Back Left
-        public static final int K_BACK_LEFT_DRIVE_MOTOR_ID = 7;
-        public static final int K_BACK_LEFT_STEER_MOTOR_ID = 6;
+        public static final int K_BACK_LEFT_DRIVE_MOTOR_ID = 11;
+        public static final int K_BACK_LEFT_STEER_MOTOR_ID = 7;
         public static final int K_BACK_LEFT_ENCODER_ID = 3;
         public static final Angle kBackLeftEncoderOffset = Rotations.of(-0.219482421875);
         public static final boolean K_BACK_LEFT_STEER_MOTOR_INVERTED = true;
@@ -127,9 +126,9 @@ public class Constants {
         public static final Distance kBackLeftYPos = kTrackWidth.div(2);
 
         // Back Right
-        public static final int K_BACK_RIGHT_DRIVE_MOTOR_ID = 5;
-        public static final int K_BACK_RIGHT_STEER_MOTOR_ID = 4;
-        public static final int K_BACK_RIGHT_ENCODER_ID = 2;
+        public static final int K_BACK_RIGHT_DRIVE_MOTOR_ID = 12;
+        public static final int K_BACK_RIGHT_STEER_MOTOR_ID = 8;
+        public static final int K_BACK_RIGHT_ENCODER_ID = 4;
         public static final Angle kBackRightEncoderOffset = Rotations.of(0.17236328125);
         public static final boolean K_BACK_RIGHT_STEER_MOTOR_INVERTED = true;
         public static final boolean K_BACK_RIGHT_ENCODER_INVERTED = false;
@@ -277,10 +276,10 @@ public class Constants {
 
     public static final class HoodConstants {
 
-        public static final int HOOD_ANGLE_TALON_ID = 1;
-        public static final int RIGHT_HOOD_PROPULSION_TALON_ID = 2;
-        public static final int LEFT_HOOD_PROPULSION_TALON_ID = 3;
-        public static final int INDEXER_TALON_ID = 0;
+        public static final int HOOD_ANGLE_TALON_ID = 14;
+        public static final int RIGHT_HOOD_PROPULSION_TALON_ID = 15;
+        public static final int LEFT_HOOD_PROPULSION_TALON_ID = 16;
+        public static final int INDEXER_TALON_ID = 17;
 
         public static final Slot0Configs HOOD_ANGLE_SLOT_CONFIGS = new Slot0Configs()
             .withKS(0.1)
@@ -349,8 +348,8 @@ public class Constants {
 
     public static final class IntakeConstants {
 
-        public static final int INTAKE_MOTOR_ID = 4;
-        public static final int PIVOT_INTAKE_MOTOR_ID = 5;
+        public static final int INTAKE_MOTOR_ID = 1;
+        public static final int PIVOT_INTAKE_MOTOR_ID = 2;
 
         public static final double INTAKE_ACTIVATION_VOLTAGE_VOLTS = 12.0;
 
@@ -425,8 +424,8 @@ public class Constants {
     }
 
     public static final class ClimberConstants {
-        public static final int LEFT_CLIMBER_MOTOR_ID = 6;
-        public static final int RIGHT_CLIMBER_MOTOR_ID = 7;
+        public static final int LEFT_CLIMBER_MOTOR_ID = 3;
+        public static final int RIGHT_CLIMBER_MOTOR_ID = 4;
 
         public static final SparkMaxEntrys.SuperSparkMaxConfig CLIMBER_MOTOR_CONFIG() {
             SuperSparkMaxConfig config = new SparkMaxEntrys.SuperSparkMaxConfig();
