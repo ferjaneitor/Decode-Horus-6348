@@ -6,7 +6,10 @@ import com.ctre.phoenix6.configs.Slot0Configs;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
+
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.KilogramSquareMeters;
@@ -83,7 +86,7 @@ public class Constants {
         public static final int K_PIGEON_ID = 13;
 
         // These are only used for simulation
-        public static final MomentOfInertia kSteerInertia = KilogramSquareMeters.of(0.004);
+        public static final MomentOfInertia kSteerInertia = KilogramSquareMeters.of(0.0015);
         public static final MomentOfInertia kDriveInertia = KilogramSquareMeters.of(0.025);
         // Simulated voltage necessary to overcome friction
         public static final Voltage kSteerFrictionVoltage = Volts.of(0.2);
@@ -237,10 +240,40 @@ public class Constants {
         public static final List<VisionEntries.CameraSpecifications> cameraSpecificationsList =
                 List.of(
                         new VisionEntries.CameraSpecifications(
-                                "FrontTagCam",
-                                /* cameraToRobotTransform3d */ new Transform3d(),
+                                "FrontRightTagCam",
+                                new Transform3d(
+                                    new Translation3d(0.32,-0.32,0.1778),
+                                    new Rotation3d(0,0,0)
+                                ),
                                 VisionEnums.PoseEstimateNoiseLevel.MEDIUM,
-                                /* cameraConfidenceMultiplier */ 1.0
+                                1.0
+                        ),
+                        new VisionEntries.CameraSpecifications(
+                                "FrontLeftTagCam",
+                                new Transform3d(
+                                    new Translation3d(0.32,0.32,0.1778),
+                                    new Rotation3d(0,0,0)
+                                ),
+                                VisionEnums.PoseEstimateNoiseLevel.HIGH,
+                                0.8
+                        ),
+                        new VisionEntries.CameraSpecifications(
+                                "SideLeftTagCam",
+                                new Transform3d(
+                                    new Translation3d(0.32,0.32,0.1778),
+                                    new Rotation3d(0,0,Math.toRadians(90))
+                                ),
+                                VisionEnums.PoseEstimateNoiseLevel.HIGH,
+                                0.8
+                        ),
+                        new VisionEntries.CameraSpecifications(
+                                "SideRightTagCam",
+                                new Transform3d(
+                                    new Translation3d(0.32,-0.32,0.1778),
+                                    new Rotation3d(0,0,Math.toRadians(-90))
+                                ),
+                                VisionEnums.PoseEstimateNoiseLevel.HIGH,
+                                0.8
                         )
                         // Agrega más cámaras aquí...
                 );

@@ -64,38 +64,38 @@ import frc.robot.Vision.VisionHardwareFactoryImpl;
 import frc.robot.Vision.VisionSubsystem;
 
 public class RobotContainer {
-  private final Drive drive;
+    private final Drive drive;
 
-  // MapleSim drivetrain (SIM only)
-  private final SwerveDriveSimulation swerveDriveSimulation;
+    // MapleSim drivetrain (SIM only)
+    private final SwerveDriveSimulation swerveDriveSimulation;
 
-  private final CommandXboxController controller = new CommandXboxController(0);
+    private final CommandXboxController controller = new CommandXboxController(0);
 
-  private final VisionStandardDeviationModel visionStandardDeviationModel =
-      new VisionStandardDeviationModel(
-          VisionConstants.MAXIMUM_AMBIGUITY_FOR_SINGLE_TAG,
-          VisionConstants.MAXIMUM_Z_ERROR_METERS,
-          VisionConstants.MAXIMUM_OBSERVATION_AGE_SECONDS,
-          VisionConstants.MAXIMUM_DISTANCE_FOR_SINGLE_TAG_METERS,
-          VisionConstants.MAXIMUM_DISTANCE_FOR_MULTI_TAG_METERS,
-          VisionConstants.MAXIMUM_YAW_RATE_RADIANS_PER_SECOND,
-          VisionConstants.MAXIMUM_LINEAR_STANDARD_DEVIATION_METERS,
-          VisionConstants.MAXIMUM_ANGULAR_STANDARD_DEVIATION_RADIANS
-      );
+    private final VisionStandardDeviationModel visionStandardDeviationModel =
+        new VisionStandardDeviationModel(
+            VisionConstants.MAXIMUM_AMBIGUITY_FOR_SINGLE_TAG,
+            VisionConstants.MAXIMUM_Z_ERROR_METERS,
+            VisionConstants.MAXIMUM_OBSERVATION_AGE_SECONDS,
+            VisionConstants.MAXIMUM_DISTANCE_FOR_SINGLE_TAG_METERS,
+            VisionConstants.MAXIMUM_DISTANCE_FOR_MULTI_TAG_METERS,
+            VisionConstants.MAXIMUM_YAW_RATE_RADIANS_PER_SECOND,
+            VisionConstants.MAXIMUM_LINEAR_STANDARD_DEVIATION_METERS,
+            VisionConstants.MAXIMUM_ANGULAR_STANDARD_DEVIATION_RADIANS
+        );
 
-  private final VisionSubsystem visionSubsystem;
-  private final VisionHardwareFactoryImpl visionHardwareFactory;
+    private final VisionSubsystem visionSubsystem;
+    private final VisionHardwareFactoryImpl visionHardwareFactory;
 
-  private final ShootingHelper shootingHelper =
-      new ShootingHelper(FieldCosntants.IS_ANDYMARK_FIELD);
+    private final ShootingHelper shootingHelper =
+        new ShootingHelper(FieldCosntants.IS_ANDYMARK_FIELD);
 
-  private final HoodSubsystem hoodSubsystem;
-  private final IntakeSubsystem intakeSubsystem;
-  private final ClimberSubsystem climberSubsystem;
+    private final HoodSubsystem hoodSubsystem;
+    private final IntakeSubsystem intakeSubsystem;
+    private final ClimberSubsystem climberSubsystem;
 
-  private final LoggedDashboardChooser<Command> autoChooser;
+    private final LoggedDashboardChooser<Command> autoChooser;
 
-  private enum ShooterProjectileSimulationMode {
+    private enum ShooterProjectileSimulationMode {
         MAPLE_SIM_ONLY,
         HYBRID_MAPLE_ROBOT_FUEL_SIM_PROJECTILES
     }
@@ -103,36 +103,41 @@ public class RobotContainer {
     private final SendableChooser<ShooterProjectileSimulationMode> shooterProjectileSimulationModeChooser =
         new SendableChooser<>();
 
-  public RobotContainer() {
-    
+    public RobotContainer() {
+
     switch (DriveConstants.CURRENT_MODE) {
-      case SIM -> {
+        case SIM -> {
+        Pose2d initialSimulationPose = new Pose2d(2.0, 2.0, Rotation2d.fromDegrees(0.0));
+
         swerveDriveSimulation =
-            new SwerveDriveSimulation(Drive.getMapleSimConfig(), Pose2d.kZero);
+                new SwerveDriveSimulation(Drive.getMapleSimConfig(), initialSimulationPose);
 
         SimulatedArena.getInstance().addDriveTrainSimulation(swerveDriveSimulation);
 
         GyroIO gyroIoImplementation = new GyroIOSim(swerveDriveSimulation.getGyroSimulation());
 
         ModuleIO frontLeftModuleIo =
-            new ModuleIOTalonFXSim(TunerConstants.FrontLeft, swerveDriveSimulation.getModules()[0]);
+                new ModuleIOTalonFXSim(TunerConstants.FrontLeft, swerveDriveSimulation.getModules()[0]);
         ModuleIO frontRightModuleIo =
-            new ModuleIOTalonFXSim(TunerConstants.FrontRight, swerveDriveSimulation.getModules()[1]);
+                new ModuleIOTalonFXSim(TunerConstants.FrontRight, swerveDriveSimulation.getModules()[1]);
         ModuleIO backLeftModuleIo =
-            new ModuleIOTalonFXSim(TunerConstants.BackLeft, swerveDriveSimulation.getModules()[2]);
+                new ModuleIOTalonFXSim(TunerConstants.BackLeft, swerveDriveSimulation.getModules()[2]);
         ModuleIO backRightModuleIo =
-            new ModuleIOTalonFXSim(TunerConstants.BackRight, swerveDriveSimulation.getModules()[3]);
+                new ModuleIOTalonFXSim(TunerConstants.BackRight, swerveDriveSimulation.getModules()[3]);
 
         drive =
-            new Drive(
-                gyroIoImplementation,
-                frontLeftModuleIo,
-                frontRightModuleIo,
-                backLeftModuleIo,
-                backRightModuleIo,
-                swerveDriveSimulation::setSimulationWorldPose);
-      }
-      case REAL -> {
+                new Drive(
+                        gyroIoImplementation,
+                        frontLeftModuleIo,
+                        frontRightModuleIo,
+                        backLeftModuleIo,
+                        backRightModuleIo,
+                        swerveDriveSimulation::setSimulationWorldPose);
+
+        // Align estimator with the initial simulation pose
+        drive.setPose(initialSimulationPose);
+    }
+        case REAL -> {
         swerveDriveSimulation = null;
 
         drive =
@@ -142,8 +147,8 @@ public class RobotContainer {
                 new ModuleIOTalonFX(TunerConstants.FrontRight),
                 new ModuleIOTalonFX(TunerConstants.BackLeft),
                 new ModuleIOTalonFX(TunerConstants.BackRight));
-      }
-      default -> {
+        }
+        default -> {
         swerveDriveSimulation = null;
 
         drive =
@@ -153,7 +158,7 @@ public class RobotContainer {
                 new ModuleIO() {},
                 new ModuleIO() {},
                 new ModuleIO() {});
-      }
+        }
     }
 
     drive.initializeIfNeeded();
@@ -165,9 +170,9 @@ public class RobotContainer {
 
     visionHardwareFactory =
         switch (DriveConstants.CURRENT_MODE) {
-          case REAL -> new VisionHardwareFactoryImpl(drive::getPose, false);
-          case SIM -> new VisionHardwareFactoryImpl(drive::getPose, true);
-          default -> new VisionHardwareFactoryImpl(drive::getPose, false);
+            case REAL -> new VisionHardwareFactoryImpl(drive::getPose, false);
+            case SIM -> new VisionHardwareFactoryImpl(drive::getPose, true);
+            default -> new VisionHardwareFactoryImpl(drive::getPose, false);
         };
 
     visionSubsystem =
@@ -184,45 +189,45 @@ public class RobotContainer {
 
     HoodIO hoodIoImplementation =
         switch (DriveConstants.CURRENT_MODE) {
-          case REAL -> new HoodIOTalonFx();
-          case SIM -> new HoodIOSim();
-          default -> new HoodIO() {};
+            case REAL -> new HoodIOTalonFx();
+            case SIM -> new HoodIOSim();
+            default -> new HoodIO() {};
         };
 
     hoodSubsystem = new HoodSubsystem(hoodIoImplementation);
 
     IntakeIO intakeIoImplementation =
         switch (DriveConstants.CURRENT_MODE) {
-          case REAL ->
-              new IntakeIOSpark(
-                  new SuperSparkMax(
-                      IntakeConstants.INTAKE_MOTOR_ID,
-                      MotorType.kBrushless,
-                      IntakeConstants.INTAKE_MOTOR_CONFIG()),
-                  new SuperSparkMax(
-                      IntakeConstants.PIVOT_INTAKE_MOTOR_ID,
-                      MotorType.kBrushless,
-                      IntakeConstants.PIVOT_INTAKE_MOTOR_CONFIG()));
-          case SIM -> new IntakeIOSim(swerveDriveSimulation);
-          default -> new IntakeIO() {};
+            case REAL ->
+                new IntakeIOSpark(
+                    new SuperSparkMax(
+                        IntakeConstants.INTAKE_MOTOR_ID,
+                        MotorType.kBrushless,
+                        IntakeConstants.INTAKE_MOTOR_CONFIG()),
+                    new SuperSparkMax(
+                        IntakeConstants.PIVOT_INTAKE_MOTOR_ID,
+                        MotorType.kBrushless,
+                        IntakeConstants.PIVOT_INTAKE_MOTOR_CONFIG()));
+            case SIM -> new IntakeIOSim(swerveDriveSimulation);
+            default -> new IntakeIO() {};
         };
 
     intakeSubsystem = new IntakeSubsystem(intakeIoImplementation);
 
     ClimberIO climberIoImplementation =
         switch (DriveConstants.CURRENT_MODE) {
-          case REAL ->
-              new ClimberIOSpark(
-                  new SuperSparkMax(
-                      Constants.ClimberConstants.LEFT_CLIMBER_MOTOR_ID,
-                      MotorType.kBrushless,
-                      Constants.ClimberConstants.CLIMBER_MOTOR_CONFIG()),
-                  new SuperSparkMax(
-                      Constants.ClimberConstants.RIGHT_CLIMBER_MOTOR_ID,
-                      MotorType.kBrushless,
-                      Constants.ClimberConstants.CLIMBER_MOTOR_CONFIG()));
-          case SIM -> new ClimberIOSim();
-          default -> new ClimberIO() {};
+            case REAL ->
+                new ClimberIOSpark(
+                    new SuperSparkMax(
+                        Constants.ClimberConstants.LEFT_CLIMBER_MOTOR_ID,
+                        MotorType.kBrushless,
+                        Constants.ClimberConstants.CLIMBER_MOTOR_CONFIG()),
+                    new SuperSparkMax(
+                        Constants.ClimberConstants.RIGHT_CLIMBER_MOTOR_ID,
+                        MotorType.kBrushless,
+                        Constants.ClimberConstants.CLIMBER_MOTOR_CONFIG()));
+            case SIM -> new ClimberIOSim();
+            default -> new ClimberIO() {};
         };
 
     climberSubsystem = new ClimberSubsystem(climberIoImplementation);
@@ -248,9 +253,9 @@ public class RobotContainer {
 
     configureShooterSimulationModeChooser();
     configureShooterSimulationHooks();
-  }
+    }
 
-  private void configureButtonBindings() {
+    private void configureButtonBindings() {
     drive.setDefaultCommand(
         DriveCommands.joystickDriveWithVisionAim(
             drive,
@@ -285,34 +290,66 @@ public class RobotContainer {
     controller.leftTrigger().whileTrue(new ActivateIntakeCmd(intakeSubsystem));
     controller.b().onTrue(new DeployIntakeCmd(intakeSubsystem));
     controller.a().onTrue(new RetractIntakeCmd(intakeSubsystem));
-    
+
     controller.leftBumper().whileTrue(new ExpandClimberCmd(climberSubsystem));
     controller.rightBumper().whileTrue(new RetractClimberCmd(climberSubsystem));
-  }
+    }
 
-  public Command getAutonomousCommand() {
+    public Command getAutonomousCommand() {
     return autoChooser.get();
-  }
-
-  // Call from Robot.simulationPeriodic()
-  public void updateSimulation() {
-    if (swerveDriveSimulation == null) {
-      return;
     }
 
-    SimulatedArena.getInstance().simulationPeriodic();
-    Logger.recordOutput("FieldSimulation/RobotPose", swerveDriveSimulation.getSimulatedDriveTrainPose());
-
-    ShooterProjectileSimulationMode selectedMode = shooterProjectileSimulationModeChooser.getSelected();
-    if (selectedMode == ShooterProjectileSimulationMode.HYBRID_MAPLE_ROBOT_FUEL_SIM_PROJECTILES) {
-        FuelSim.getInstance().updateSim();
-    }
-  }
-
-  // Call from Robot.disabledInit()
-  public void resetSimulation() {
+    // Call from Robot.simulationPeriodic()
+    public void updateSimulation() {
     if (swerveDriveSimulation == null) {
-      return;
+        return;
+    }
+
+    Pose2d currentDrivePose = drive.getPose();
+        if (!isPoseFinite(currentDrivePose)) {
+            // If odometry is already invalid, do not feed garbage into MapleSim.
+            return;
+        }
+
+        var measuredChassisSpeeds = drive.getChassisSpeeds();
+        boolean isChassisEffectivelyStopped =
+            Math.abs(measuredChassisSpeeds.vxMetersPerSecond) < 1e-5
+            && Math.abs(measuredChassisSpeeds.vyMetersPerSecond) < 1e-5
+            && Math.abs(measuredChassisSpeeds.omegaRadiansPerSecond) < 1e-5;
+
+        // MapleSim has a known degenerate math path when speed/slip vectors are exactly (0,0).
+        // If we're effectively stopped, skip MapleSim and just keep publishing the last known pose.
+        if (isChassisEffectivelyStopped) {
+            Pose2d simulatedPose = swerveDriveSimulation.getSimulatedDriveTrainPose();
+            if (isPoseFinite(simulatedPose)) {
+                Logger.recordOutput("FieldSimulation/RobotPose", simulatedPose);
+            }
+            return;
+        }
+
+        try {
+            SimulatedArena.getInstance().simulationPeriodic();
+        } catch (Throwable throwable) {
+            Logger.recordOutput("Simulation/MapleSimException", String.valueOf(throwable.getMessage()));
+            return;
+        }
+
+        Pose2d simulatedPose = swerveDriveSimulation.getSimulatedDriveTrainPose();
+        if (isPoseFinite(simulatedPose)) {
+            Logger.recordOutput("FieldSimulation/RobotPose", simulatedPose);
+        }
+    }
+
+    private static boolean isPoseFinite(Pose2d pose) {
+        return Double.isFinite(pose.getX())
+            && Double.isFinite(pose.getY())
+            && Double.isFinite(pose.getRotation().getRadians());
+    }
+    
+    // Call from Robot.disabledInit()
+    public void resetSimulation() {
+    if (swerveDriveSimulation == null) {
+        return;
     }
 
     swerveDriveSimulation.setSimulationWorldPose(drive.getPose());
@@ -338,9 +375,9 @@ public class RobotContainer {
 
     FuelSim.getInstance().start();
 
-  }
+    }
 
-  private void configureShooterSimulationModeChooser() {
+    private void configureShooterSimulationModeChooser() {
         shooterProjectileSimulationModeChooser.setDefaultOption(
             "MapleSim only (no projectiles yet)",
             ShooterProjectileSimulationMode.MAPLE_SIM_ONLY

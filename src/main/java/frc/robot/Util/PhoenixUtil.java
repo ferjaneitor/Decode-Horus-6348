@@ -60,15 +60,17 @@ public final class PhoenixUtil {
      * rotorToMechanismRatio:
      *   rotor_rotations = mechanism_rotations * rotorToMechanismRatio
      *
-     * If you don't pass a ratio, it defaults to 1.0 (works for compile, but won't match gearing).
+     * For swerve drive motor:
+     *   mechanism_rotations = wheel_rotations
+     *   rotorToMechanismRatio = DriveMotorGearRatio
+     *
+     * For swerve steer motor:
+     *   mechanism_rotations = module_steer_rotations
+     *   rotorToMechanismRatio = SteerMotorGearRatio
      */
     public static final class TalonFXMotorControllerSim implements SimulatedMotorController {
         private final TalonFXSimState talonFxSimState;
         private final double rotorToMechanismRatio;
-
-        public TalonFXMotorControllerSim(TalonFX talonFx) {
-            this(talonFx, 1.0);
-        }
 
         public TalonFXMotorControllerSim(TalonFX talonFx, double rotorToMechanismRatio) {
             this.talonFxSimState = talonFx.getSimState();
@@ -82,10 +84,8 @@ public final class PhoenixUtil {
             Angle encoderAngle,
             AngularVelocity encoderVelocity
         ) {
-            // Feed battery voltage into Phoenix sim
             talonFxSimState.setSupplyVoltage(SimulatedBattery.getBatteryVoltage());
 
-            // Convert mechanism state (rad, rad/s) -> rotor state (rotations, rotations/s)
             double mechanismPositionRotations = mechanismAngle.in(Radians) / (2.0 * Math.PI);
             double mechanismVelocityRotationsPerSecond =
                 mechanismVelocity.in(RadiansPerSecond) / (2.0 * Math.PI);
@@ -97,22 +97,19 @@ public final class PhoenixUtil {
             talonFxSimState.setRawRotorPosition(rotorPositionRotations);
             talonFxSimState.setRotorVelocity(rotorVelocityRotationsPerSecond);
 
-            // Return the voltage Phoenix is commanding to the motor
             return talonFxSimState.getMotorVoltageMeasure();
         }
     }
 
     /**
      * MapleSim motor-controller adapter for a TalonFX + remote CANcoder.
+     *
+     * Use this for steer when your TalonFX uses remote CANcoder feedback.
      */
     public static final class TalonFXMotorControllerWithRemoteCancoderSim implements SimulatedMotorController {
         private final TalonFXSimState talonFxSimState;
         private final CANcoderSimState cancoderSimState;
         private final double rotorToMechanismRatio;
-
-        public TalonFXMotorControllerWithRemoteCancoderSim(TalonFX talonFx, CANcoder cancoder) {
-            this(talonFx, cancoder, 1.0);
-        }
 
         public TalonFXMotorControllerWithRemoteCancoderSim(
             TalonFX talonFx,
@@ -131,12 +128,10 @@ public final class PhoenixUtil {
             Angle encoderAngle,
             AngularVelocity encoderVelocity
         ) {
-            // Feed battery voltage into Phoenix sim
             Voltage batteryVoltage = SimulatedBattery.getBatteryVoltage();
             talonFxSimState.setSupplyVoltage(batteryVoltage);
             cancoderSimState.setSupplyVoltage(batteryVoltage);
 
-            // Mechanism -> rotor conversion for TalonFX
             double mechanismPositionRotations = mechanismAngle.in(Radians) / (2.0 * Math.PI);
             double mechanismVelocityRotationsPerSecond =
                 mechanismVelocity.in(RadiansPerSecond) / (2.0 * Math.PI);
@@ -148,7 +143,6 @@ public final class PhoenixUtil {
             talonFxSimState.setRawRotorPosition(rotorPositionRotations);
             talonFxSimState.setRotorVelocity(rotorVelocityRotationsPerSecond);
 
-            // CANcoder expects rotations + rotations/sec (not radians)
             double encoderPositionRotations = encoderAngle.in(Radians) / (2.0 * Math.PI);
             double encoderVelocityRotationsPerSecond =
                 encoderVelocity.in(RadiansPerSecond) / (2.0 * Math.PI);

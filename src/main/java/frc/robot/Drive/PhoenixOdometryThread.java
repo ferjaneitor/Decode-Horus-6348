@@ -7,14 +7,6 @@
 
 package frc.robot.Drive;
 
-import com.ctre.phoenix6.BaseStatusSignal;
-import com.ctre.phoenix6.StatusSignal;
-
-import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.RobotController;
-import frc.robot.Drive.Generated.TunerConstants;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -24,6 +16,14 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.DoubleSupplier;
 
 import org.littletonrobotics.junction.Logger;
+
+import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.StatusSignal;
+
+import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotController;
+import frc.robot.Drive.Generated.TunerConstants;
 
 /**
  * Provides an interface for asynchronously reading high-frequency measurements to a set of queues.
@@ -115,7 +115,6 @@ public class PhoenixOdometryThread extends Thread {
 
     while (!Thread.currentThread().isInterrupted()) {
 
-      // Snapshot para no dormir/bloquear con signalsLock tomado
       final BaseStatusSignal[] phoenixSignalsSnapshot;
       final List<DoubleSupplier> genericSignalsSnapshot;
 
@@ -128,38 +127,34 @@ public class PhoenixOdometryThread extends Thread {
       }
 
       try {
-        if (IS_CAN_FD && phoenixSignalsSnapshot.length > 0) {
-          BaseStatusSignal.waitForAll(2.0 / Drive.ODOMETRY_FREQUENCY, phoenixSignalsSnapshot);
-        } else {
-          // Evitar dormir con locks tomados (ya no tenemos signalsLock aquí)
+        // IMPORTANT: In simulation, do not block on waitForAll. It frequently goes stale.
+        if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
           java.util.concurrent.TimeUnit.NANOSECONDS.sleep(updatePeriodNanoseconds);
-
           if (phoenixSignalsSnapshot.length > 0) {
             BaseStatusSignal.refreshAll(phoenixSignalsSnapshot);
+          }
+        } else {
+          if (IS_CAN_FD && phoenixSignalsSnapshot.length > 0) {
+            BaseStatusSignal.waitForAll(2.0 / Drive.ODOMETRY_FREQUENCY, phoenixSignalsSnapshot);
+          } else {
+            java.util.concurrent.TimeUnit.NANOSECONDS.sleep(updatePeriodNanoseconds);
+            if (phoenixSignalsSnapshot.length > 0) {
+              BaseStatusSignal.refreshAll(phoenixSignalsSnapshot);
+            }
           }
         }
       } catch (InterruptedException interruptedException) {
         Thread.currentThread().interrupt();
-
-        // DS console (útil en match)
-        DriverStation.reportWarning(
-            "Odometry thread interrupted; stopping thread.", false);
-
-        // AdvantageKit log (útil en postmortem)
+        DriverStation.reportWarning("Odometry thread interrupted; stopping thread.", false);
         Logger.recordOutput("Odometry/ThreadInterrupted", true);
         Logger.recordOutput("Odometry/ThreadInterruptedMessage", interruptedException.getMessage());
-
         return;
       } catch (Exception unexpectedException) {
-        // Esto NO es para spamear; es para capturar fallos reales de runtime
         DriverStation.reportError(
             "Unexpected exception in odometry thread: " + unexpectedException.getMessage(),
             unexpectedException.getStackTrace());
-
         Logger.recordOutput("Odometry/ThreadException", true);
         Logger.recordOutput("Odometry/ThreadExceptionMessage", unexpectedException.getMessage());
-
-        // Decide si quieres matar el thread o seguir:
         return;
       }
 
@@ -168,7 +163,7 @@ public class PhoenixOdometryThread extends Thread {
         double timestampSeconds = RobotController.getFPGATime() / 1e6;
 
         double totalLatencySeconds = 0.0;
-        for (var signal : phoenixSignalsSnapshot) {
+        for (BaseStatusSignal signal : phoenixSignalsSnapshot) {
           totalLatencySeconds += signal.getTimestamp().getLatency();
         }
         if (phoenixSignalsSnapshot.length > 0) {
@@ -186,14 +181,9 @@ public class PhoenixOdometryThread extends Thread {
         for (int timestampIndex = 0; timestampIndex < timestampQueues.size(); timestampIndex++) {
           timestampQueues.get(timestampIndex).offer(timestampSeconds);
         }
-
-        // Opcional: medir jitter/overrun para verlo en AdvantageScope
-        // Logger.recordOutput("Odometry/LastTimestampSeconds", timestampSeconds);
-
       } finally {
         Drive.odometryLock.unlock();
       }
     }
   }
-
 }

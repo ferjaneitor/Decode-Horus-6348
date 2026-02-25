@@ -20,7 +20,9 @@ public class VisionIOPhotonVision implements VisionIO {
     protected final PhotonCamera photonCamera;
     private final PhotonPoseEstimator photonPoseEstimator;
 
-    private VisionEnums.PoseEstimationMode poseEstimationMode = VisionEnums.PoseEstimationMode.COPROCESSOR_MULTI_TAG;
+    private VisionEnums.PoseEstimationMode poseEstimationMode =
+            VisionEnums.PoseEstimationMode.COPROCESSOR_MULTI_TAG;
+
     private Pose3d referencePoseForEstimation = new Pose3d();
 
     public VisionIOPhotonVision(
@@ -30,7 +32,7 @@ public class VisionIOPhotonVision implements VisionIO {
     ) {
         this.photonCamera = new PhotonCamera(cameraName);
 
-        // 2026: preferred constructor is (fieldTags, robotToCamera). :contentReference[oaicite:3]{index=3}
+        // Preferred constructor for 2026+: (fieldTags, robotToCamera)
         this.photonPoseEstimator = new PhotonPoseEstimator(aprilTagFieldLayout, robotToCameraTransform3d);
     }
 
@@ -68,8 +70,14 @@ public class VisionIOPhotonVision implements VisionIO {
             return;
         }
 
-        boolean hasTargetThisCycle = false;
+        // IMPORTANT PERFORMANCE FIX:
+        // In sim (and sometimes on real if you stall), results can accumulate.
+        // Processing all unread frames can explode periodic time.
+        // Process only the newest frame.
+        PhotonPipelineResult pipelineResultToProcess =
+                unreadPipelineResults.get(unreadPipelineResults.size() - 1);
 
+        boolean hasTargetThisCycle = false;
         Set<Integer> detectedTagIdentifierSet = new HashSet<>();
 
         List<Double> timestampList = new ArrayList<>();
@@ -80,81 +88,89 @@ public class VisionIOPhotonVision implements VisionIO {
         List<Boolean> rotationTrustedList = new ArrayList<>();
         List<Long> observationTypeOrdinalList = new ArrayList<>();
 
-        for (PhotonPipelineResult pipelineResult : unreadPipelineResults) {
-            if (pipelineResult == null) {
-                continue;
-            }
+        if (pipelineResultToProcess != null) {
 
-            if (pipelineResult.hasTargets()) {
+            if (pipelineResultToProcess.hasTargets()) {
                 hasTargetThisCycle = true;
 
-                var bestTarget = pipelineResult.getBestTarget();
+                var bestTarget = pipelineResultToProcess.getBestTarget();
                 inputs.latestTargetYawRadians = Math.toRadians(bestTarget.getYaw());
                 inputs.latestTargetPitchRadians = Math.toRadians(bestTarget.getPitch());
             }
 
-            Optional<EstimatedRobotPose> estimatedRobotPoseOptional = estimateRobotPoseWithFallback(pipelineResult);
-            if (estimatedRobotPoseOptional.isEmpty()) {
-                continue;
+            Optional<EstimatedRobotPose> estimatedRobotPoseOptional =
+                    estimateRobotPoseWithFallback(pipelineResultToProcess);
+
+            if (estimatedRobotPoseOptional.isPresent()) {
+                EstimatedRobotPose estimatedRobotPose = estimatedRobotPoseOptional.get();
+                Pose3d estimatedRobotPose3d = estimatedRobotPose.estimatedPose;
+
+                int tagCount =
+                        (estimatedRobotPose.targetsUsed != null)
+                                ? estimatedRobotPose.targetsUsed.size()
+                                : 0;
+
+                if (tagCount > 0) {
+                    double totalDistanceMeters = 0.0;
+                    double poseAmbiguity = 0.0;
+
+                    for (var target : estimatedRobotPose.targetsUsed) {
+                        detectedTagIdentifierSet.add(target.getFiducialId());
+                        totalDistanceMeters += target.getBestCameraToTarget().getTranslation().getNorm();
+                    }
+                    totalDistanceMeters /= tagCount;
+
+                    if (tagCount == 1) {
+                        poseAmbiguity = estimatedRobotPose.targetsUsed.get(0).getPoseAmbiguity();
+                    }
+
+                    boolean rotationTrusted = tagCount > 1;
+
+                    VisionEnums.PoseObservationType observationType =
+                            (tagCount > 1)
+                                    ? VisionEnums.PoseObservationType.PHOTONVISION_MULTI_TAG
+                                    : VisionEnums.PoseObservationType.PHOTONVISION_SINGLE_TAG;
+
+                    timestampList.add(estimatedRobotPose.timestampSeconds);
+                    robotPoseList.add(estimatedRobotPose3d);
+                    ambiguityList.add(poseAmbiguity);
+                    tagCountList.add((long) tagCount);
+                    averageDistanceList.add(totalDistanceMeters);
+                    rotationTrustedList.add(rotationTrusted);
+                    observationTypeOrdinalList.add((long) observationType.ordinal());
+                }
             }
-
-            EstimatedRobotPose estimatedRobotPose = estimatedRobotPoseOptional.get();
-            Pose3d estimatedRobotPose3d = estimatedRobotPose.estimatedPose;
-
-            int tagCount = (estimatedRobotPose.targetsUsed != null) ? estimatedRobotPose.targetsUsed.size() : 0;
-            if (tagCount <= 0) {
-                continue;
-            }
-
-            double totalDistanceMeters = 0.0;
-            double poseAmbiguity = 0.0;
-
-            for (var target : estimatedRobotPose.targetsUsed) {
-                detectedTagIdentifierSet.add(target.getFiducialId());
-                totalDistanceMeters += target.getBestCameraToTarget().getTranslation().getNorm();
-            }
-            totalDistanceMeters /= tagCount;
-
-            if (tagCount == 1) {
-                poseAmbiguity = estimatedRobotPose.targetsUsed.get(0).getPoseAmbiguity();
-            }
-
-            boolean rotationTrusted = tagCount > 1;
-
-            VisionEnums.PoseObservationType observationType =
-                    (tagCount > 1)
-                            ? VisionEnums.PoseObservationType.PHOTONVISION_MULTI_TAG
-                            : VisionEnums.PoseObservationType.PHOTONVISION_SINGLE_TAG;
-
-            timestampList.add(estimatedRobotPose.timestampSeconds);
-            robotPoseList.add(estimatedRobotPose3d);
-            ambiguityList.add(poseAmbiguity);
-            tagCountList.add((long) tagCount);
-            averageDistanceList.add(totalDistanceMeters);
-            rotationTrustedList.add(rotationTrusted);
-            observationTypeOrdinalList.add((long) observationType.ordinal());
         }
 
         inputs.hasTarget = hasTargetThisCycle;
 
-        // Si nunca hubo targets este ciclo, al menos no “ensucies” aiming con valores viejos
         if (!hasTargetThisCycle) {
             inputs.latestTargetYawRadians = 0.0;
             inputs.latestTargetPitchRadians = 0.0;
         }
 
-        inputs.observationTimestampsSeconds = timestampList.stream().mapToDouble(Double::doubleValue).toArray();
-        inputs.observationRobotPoses = robotPoseList.toArray(Pose3d[]::new);
-        inputs.observationAmbiguities = ambiguityList.stream().mapToDouble(Double::doubleValue).toArray();
-        inputs.observationTagCounts = tagCountList.stream().mapToLong(Long::longValue).toArray();
-        inputs.observationAverageTagDistanceMeters = averageDistanceList.stream().mapToDouble(Double::doubleValue).toArray();
+        inputs.observationTimestampsSeconds =
+                timestampList.stream().mapToDouble(Double::doubleValue).toArray();
+
+        inputs.observationRobotPoses =
+                robotPoseList.toArray(Pose3d[]::new);
+
+        inputs.observationAmbiguities =
+                ambiguityList.stream().mapToDouble(Double::doubleValue).toArray();
+
+        inputs.observationTagCounts =
+                tagCountList.stream().mapToLong(Long::longValue).toArray();
+
+        inputs.observationAverageTagDistanceMeters =
+                averageDistanceList.stream().mapToDouble(Double::doubleValue).toArray();
 
         inputs.observationRotationTrusted = new boolean[rotationTrustedList.size()];
         for (int observationIndex = 0; observationIndex < rotationTrustedList.size(); observationIndex++) {
             inputs.observationRotationTrusted[observationIndex] = rotationTrustedList.get(observationIndex);
         }
 
-        inputs.observationTypeOrdinals = observationTypeOrdinalList.stream().mapToLong(Long::longValue).toArray();
+        inputs.observationTypeOrdinals =
+                observationTypeOrdinalList.stream().mapToLong(Long::longValue).toArray();
 
         long[] detectedTagIdentifierArray = new long[detectedTagIdentifierSet.size()];
         int detectedTagIndex = 0;
@@ -163,7 +179,7 @@ public class VisionIOPhotonVision implements VisionIO {
         }
         inputs.detectedTagIdentifiers = detectedTagIdentifierArray;
     }
-    
+
     private Optional<EstimatedRobotPose> estimateRobotPoseWithFallback(PhotonPipelineResult pipelineResult) {
         Optional<EstimatedRobotPose> coprocessorMultiTagEstimate =
                 photonPoseEstimator.estimateCoprocMultiTagPose(pipelineResult);

@@ -11,6 +11,9 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
+import org.ironmaple.simulation.drivesims.COTS;
+import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
+import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -38,12 +41,10 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.system.plant.DCMotor;
-
+import static edu.wpi.first.units.Units.Kilograms;
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.Volts;
-import static edu.wpi.first.units.Units.Kilograms;
-
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -51,7 +52,6 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-
 import frc.AutoLogger.GyroIOInputsAutoLogged;
 import frc.robot.Constants;
 import frc.robot.Constants.DriveConstants;
@@ -60,14 +60,6 @@ import frc.robot.Drive.Generated.TunerConstants;
 import frc.robot.Drive.Gyro.GyroIO;
 import frc.robot.Drive.SwerveModule.ModuleIO;
 import frc.robot.Util.LocalADStarAK;
-
-// MapleSim
-
-import org.ironmaple.simulation.drivesims.COTS;
-import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
-import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
-
-import static edu.wpi.first.units.Units.KilogramSquareMeters;
 
 public class Drive extends SubsystemBase {
   public static final double ODOMETRY_FREQUENCY =
@@ -234,58 +226,75 @@ public class Drive extends SubsystemBase {
 
   @Override
   public void periodic() {
-    initializeIfNeeded();
+      initializeIfNeeded();
 
-    odometryLock.lock();
-    try {
-      gyroIO.updateInputs(gyroInputs);
-      Logger.processInputs("Drive/Gyro", gyroInputs);
-      for (var module : modules) {
-        module.periodic();
+      odometryLock.lock();
+      try {
+          gyroIO.updateInputs(gyroInputs);
+          Logger.processInputs("Drive/Gyro", gyroInputs);
+          for (var module : modules) {
+              module.periodic();
+          }
+      } finally {
+          odometryLock.unlock();
       }
-    } finally {
-      odometryLock.unlock();
+
+      if (DriverStation.isDisabled()) {
+          for (var module : modules) {
+              module.stop();
+          }
+          Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
+          Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
+      }
+
+      double[] sampleTimestamps = modules[0].getOdometryTimestamps();
+      int sampleCount = sampleTimestamps.length;
+
+      for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
+          SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
+          SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[4];
+
+          for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
+              modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[sampleIndex];
+              moduleDeltas[moduleIndex] =
+                      new SwerveModulePosition(
+                              modulePositions[moduleIndex].distanceMeters
+                                      - lastModulePositions[moduleIndex].distanceMeters,
+                              modulePositions[moduleIndex].angle);
+              lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
+          }
+
+          if (gyroInputs.connected) {
+              rawGyroRotation = gyroInputs.odometryYawPositions[sampleIndex];
+          } else {
+              Twist2d twist = kinematics.toTwist2d(moduleDeltas);
+              rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
+          }
+
+          poseEstimator.updateWithTime(sampleTimestamps[sampleIndex], rawGyroRotation, modulePositions);
+      }
+
+      gyroDisconnectedAlert.set(!gyroInputs.connected && DriveConstants.CURRENT_MODE != Mode.SIM);
+
+      // Publish an easy-to-find pose key for AdvantageScope Field2d
+    Pose2d currentPose = getPose();
+    if (!isPoseFinite(currentPose)) {
+        Pose2d fallbackPose = new Pose2d(2.0, 2.0, Rotation2d.fromDegrees(0.0));
+        setPose(fallbackPose);
+        Logger.recordOutput("Odometry/WasResetDueToNaN", true);
+    } else {
+        Logger.recordOutput("Odometry/WasResetDueToNaN", false);
     }
 
-    // Stop moving when disabled
-    if (DriverStation.isDisabled()) {
-      for (var module : modules) {
-        module.stop();
-      }
-      Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
-      Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
-    }
-
-    // Update odometry
-    double[] sampleTimestamps = modules[0].getOdometryTimestamps();
-    int sampleCount = sampleTimestamps.length;
-
-    for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
-      SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
-      SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[4];
-
-      for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
-        modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[sampleIndex];
-        moduleDeltas[moduleIndex] =
-            new SwerveModulePosition(
-                modulePositions[moduleIndex].distanceMeters
-                    - lastModulePositions[moduleIndex].distanceMeters,
-                modulePositions[moduleIndex].angle);
-        lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
-      }
-
-      if (gyroInputs.connected) {
-        rawGyroRotation = gyroInputs.odometryYawPositions[sampleIndex];
-      } else {
-        Twist2d twist = kinematics.toTwist2d(moduleDeltas);
-        rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
-      }
-
-      poseEstimator.updateWithTime(sampleTimestamps[sampleIndex], rawGyroRotation, modulePositions);
-    }
-
-    gyroDisconnectedAlert.set(!gyroInputs.connected && DriveConstants.CURRENT_MODE != Mode.SIM);
+    // Optional: easy Field2d key
+    Logger.recordOutput("Field/RobotPose", getPose());
   }
+  
+  private static boolean isPoseFinite(Pose2d pose) {
+    return Double.isFinite(pose.getX())
+            && Double.isFinite(pose.getY())
+            && Double.isFinite(pose.getRotation().getRadians());
+}
 
   public void runVelocity(ChassisSpeeds speeds) {
     ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, 0.02);
@@ -380,11 +389,17 @@ public class Drive extends SubsystemBase {
 
   @AutoLogOutput(key = "Odometry/YawRateRadPerSec")
   public double getYawRateRadiansPerSecond() {
-    if (gyroInputs.connected) {
-      return gyroInputs.yawVelocityRadPerSec;
-    }
-    ChassisSpeeds measuredChassisSpeeds = getChassisSpeeds();
-    return measuredChassisSpeeds.omegaRadiansPerSecond;
+      double yawRateFromGyro = gyroInputs.yawVelocityRadPerSec;
+      if (gyroInputs.connected && Double.isFinite(yawRateFromGyro)) {
+          return yawRateFromGyro;
+      }
+
+      double yawRateFromKinematics = getChassisSpeeds().omegaRadiansPerSecond;
+      if (Double.isFinite(yawRateFromKinematics)) {
+          return yawRateFromKinematics;
+      }
+
+      return 0.0;
   }
 
   @AutoLogOutput(key = "SwerveChassisSpeeds/MeasuredPublic")
@@ -443,44 +458,37 @@ public class Drive extends SubsystemBase {
   // MapleSim drivetrain configuration helper
   public static DriveTrainSimulationConfig getMapleSimConfig() {
     double trackLengthMeters =
-        Math.abs(TunerConstants.FrontLeft.LocationX - TunerConstants.BackLeft.LocationX);
+            Math.abs(TunerConstants.FrontLeft.LocationX - TunerConstants.BackLeft.LocationX);
 
     double trackWidthMeters =
-        Math.abs(TunerConstants.FrontLeft.LocationY - TunerConstants.FrontRight.LocationY);
+            Math.abs(TunerConstants.FrontLeft.LocationY - TunerConstants.FrontRight.LocationY);
 
-    // Wheel properties (you can tune these)
     double wheelRadiusMeters = TunerConstants.FrontLeft.WheelRadius;
 
-    // This is what you had as "0.860 kg" (wheel mass). MapleSim now wants wheel MOI instead.
-    double wheelMassKilograms = 0.860;
+    double wheelCoefficientOfFrictionForSimulation = DriveConstants.WHEEL_COF;
 
-    // Approximate wheel as a solid disk: I = 1/2 * m * r^2
-    // If your wheel behaves more like a hoop, use I = m * r^2 instead.
-    double wheelMomentOfInertiaKilogramSquareMeters =
-        0.5 * wheelMassKilograms * wheelRadiusMeters * wheelRadiusMeters;
-
-    // If you prefer, you can reuse your constant wheelCoefficientOfFriction,
-    // but I’m keeping your original 0.01 (very slippery) as-is:
-    double wheelCoefficientOfFrictionForSimulation = 0.01;
-
+    // IMPORTANT:
+    // The inertia that MapleSim expects here is the STEER (azimuth) rotation inertia, not the wheel spin inertia.
+    // Use your constants for simulation.
     SwerveModuleSimulationConfig swerveModuleSimulationConfig =
-        new SwerveModuleSimulationConfig(
-            DCMotor.getKrakenX60Foc(1),
-            DCMotor.getKrakenX60Foc(1),
-            TunerConstants.FrontLeft.DriveMotorGearRatio,
-            TunerConstants.FrontLeft.SteerMotorGearRatio,
-            Volts.of(0.2),
-            Volts.of(0.2),
-            Meters.of(wheelRadiusMeters),
-            KilogramSquareMeters.of(wheelMomentOfInertiaKilogramSquareMeters),
-            wheelCoefficientOfFrictionForSimulation);
+            new SwerveModuleSimulationConfig(
+                    DCMotor.getKrakenX60Foc(1),
+                    DCMotor.getKrakenX60Foc(1),
+                    TunerConstants.FrontLeft.DriveMotorGearRatio,
+                    TunerConstants.FrontLeft.SteerMotorGearRatio,
+                    DriveConstants.kDriveFrictionVoltage,
+                    DriveConstants.kSteerFrictionVoltage,
+                    Meters.of(wheelRadiusMeters),
+                    DriveConstants.kSteerInertia,
+                    wheelCoefficientOfFrictionForSimulation
+            );
 
     return DriveTrainSimulationConfig.Default()
-        .withGyro(COTS.ofPigeon2())
-        .withRobotMass(Kilograms.of(ROBOT_MASS_KILOGRAMS))
-        .withTrackLengthTrackWidth(Meters.of(trackLengthMeters), Meters.of(trackWidthMeters))
-        .withBumperSize(Meters.of(0.762), Meters.of(0.762))
-        .withSwerveModule(swerveModuleSimulationConfig)
-        .withCustomModuleTranslations(getModuleTranslations());
+            .withGyro(COTS.ofPigeon2())
+            .withRobotMass(Kilograms.of(ROBOT_MASS_KILOGRAMS))
+            .withTrackLengthTrackWidth(Meters.of(trackLengthMeters), Meters.of(trackWidthMeters))
+            .withBumperSize(Meters.of(0.762), Meters.of(0.762))
+            .withSwerveModule(swerveModuleSimulationConfig)
+            .withCustomModuleTranslations(getModuleTranslations());
   }
 }
