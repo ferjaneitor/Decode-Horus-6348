@@ -11,6 +11,7 @@ import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+import org.photonvision.PhotonCamera;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
@@ -18,6 +19,7 @@ import com.revrobotics.spark.SparkLowLevel.MotorType;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.units.Units;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -27,6 +29,7 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.SIm.Shooting.ShooterShotParameters;
 import frc.SIm.SimLibraries.FuelSim;
 import frc.SuperSubsystem.SuperMotors.SparkMax.SuperSparkMax;
+import frc.SuperSubsystem.SuperVision.VisionIOPhotonVisionSim;
 import frc.SuperSubsystem.SuperVision.VisionStandardDeviationModel;
 import frc.robot.Climber.ClimberSubsystem;
 import frc.robot.Climber.ExpandClimberCmd;
@@ -105,38 +108,42 @@ public class RobotContainer {
 
     public RobotContainer() {
 
-    switch (DriveConstants.CURRENT_MODE) {
-        case SIM -> {
-        Pose2d initialSimulationPose = new Pose2d(2.0, 2.0, Rotation2d.fromDegrees(0.0));
+        if (RobotBase.isSimulation()) {
+            PhotonCamera.setVersionCheckEnabled(false);
+        }
 
-        swerveDriveSimulation =
-                new SwerveDriveSimulation(Drive.getMapleSimConfig(), initialSimulationPose);
+        switch (DriveConstants.CURRENT_MODE) {
+            case SIM -> {
+            Pose2d initialSimulationPose = new Pose2d(2.0, 2.0, Rotation2d.fromDegrees(0.0));
 
-        SimulatedArena.getInstance().addDriveTrainSimulation(swerveDriveSimulation);
+            swerveDriveSimulation =
+                    new SwerveDriveSimulation(Drive.getMapleSimConfig(), initialSimulationPose);
 
-        GyroIO gyroIoImplementation = new GyroIOSim(swerveDriveSimulation.getGyroSimulation());
+            SimulatedArena.getInstance().addDriveTrainSimulation(swerveDriveSimulation);
 
-        ModuleIO frontLeftModuleIo =
-                new ModuleIOTalonFXSim(TunerConstants.FrontLeft, swerveDriveSimulation.getModules()[0]);
-        ModuleIO frontRightModuleIo =
-                new ModuleIOTalonFXSim(TunerConstants.FrontRight, swerveDriveSimulation.getModules()[1]);
-        ModuleIO backLeftModuleIo =
-                new ModuleIOTalonFXSim(TunerConstants.BackLeft, swerveDriveSimulation.getModules()[2]);
-        ModuleIO backRightModuleIo =
-                new ModuleIOTalonFXSim(TunerConstants.BackRight, swerveDriveSimulation.getModules()[3]);
+            GyroIO gyroIoImplementation = new GyroIOSim(swerveDriveSimulation.getGyroSimulation());
 
-        drive =
-                new Drive(
-                        gyroIoImplementation,
-                        frontLeftModuleIo,
-                        frontRightModuleIo,
-                        backLeftModuleIo,
-                        backRightModuleIo,
-                        swerveDriveSimulation::setSimulationWorldPose);
+            ModuleIO frontLeftModuleIo =
+                    new ModuleIOTalonFXSim(TunerConstants.FrontLeft, swerveDriveSimulation.getModules()[0]);
+            ModuleIO frontRightModuleIo =
+                    new ModuleIOTalonFXSim(TunerConstants.FrontRight, swerveDriveSimulation.getModules()[1]);
+            ModuleIO backLeftModuleIo =
+                    new ModuleIOTalonFXSim(TunerConstants.BackLeft, swerveDriveSimulation.getModules()[2]);
+            ModuleIO backRightModuleIo =
+                    new ModuleIOTalonFXSim(TunerConstants.BackRight, swerveDriveSimulation.getModules()[3]);
 
-        // Align estimator with the initial simulation pose
-        drive.setPose(initialSimulationPose);
-    }
+            drive =
+                    new Drive(
+                            gyroIoImplementation,
+                            frontLeftModuleIo,
+                            frontRightModuleIo,
+                            backLeftModuleIo,
+                            backRightModuleIo,
+                            swerveDriveSimulation::setSimulationWorldPose);
+
+            // Align estimator with the initial simulation pose
+            drive.setPose(initialSimulationPose);
+        }
         case REAL -> {
         swerveDriveSimulation = null;
 
@@ -170,9 +177,9 @@ public class RobotContainer {
 
     visionHardwareFactory =
         switch (DriveConstants.CURRENT_MODE) {
-            case REAL -> new VisionHardwareFactoryImpl(drive::getPose, false);
-            case SIM -> new VisionHardwareFactoryImpl(drive::getPose, true);
-            default -> new VisionHardwareFactoryImpl(drive::getPose, false);
+            case REAL -> new VisionHardwareFactoryImpl(false);
+            case SIM -> new VisionHardwareFactoryImpl(true);
+            default -> new VisionHardwareFactoryImpl(false);
         };
 
     visionSubsystem =
@@ -301,80 +308,36 @@ public class RobotContainer {
 
     // Call from Robot.simulationPeriodic()
     public void updateSimulation() {
-    if (swerveDriveSimulation == null) {
-        return;
-    }
-
-    Pose2d currentDrivePose = drive.getPose();
-        if (!isPoseFinite(currentDrivePose)) {
-            // If odometry is already invalid, do not feed garbage into MapleSim.
+        if (swerveDriveSimulation == null) {
             return;
         }
 
-        var measuredChassisSpeeds = drive.getChassisSpeeds();
-        boolean isChassisEffectivelyStopped =
-            Math.abs(measuredChassisSpeeds.vxMetersPerSecond) < 1e-5
-            && Math.abs(measuredChassisSpeeds.vyMetersPerSecond) < 1e-5
-            && Math.abs(measuredChassisSpeeds.omegaRadiansPerSecond) < 1e-5;
+        // Step MapleSim world
+        SimulatedArena.getInstance().simulationPeriodic();
 
-        // MapleSim has a known degenerate math path when speed/slip vectors are exactly (0,0).
-        // If we're effectively stopped, skip MapleSim and just keep publishing the last known pose.
-        if (isChassisEffectivelyStopped) {
-            Pose2d simulatedPose = swerveDriveSimulation.getSimulatedDriveTrainPose();
-            if (isPoseFinite(simulatedPose)) {
-                Logger.recordOutput("FieldSimulation/RobotPose", simulatedPose);
-            }
-            return;
-        }
-
-        try {
-            SimulatedArena.getInstance().simulationPeriodic();
-        } catch (Throwable throwable) {
-            Logger.recordOutput("Simulation/MapleSimException", String.valueOf(throwable.getMessage()));
-            return;
-        }
-
+        // Update PhotonLib vision simulation with ground truth pose (MapleSim)
         Pose2d simulatedPose = swerveDriveSimulation.getSimulatedDriveTrainPose();
-        if (isPoseFinite(simulatedPose)) {
-            Logger.recordOutput("FieldSimulation/RobotPose", simulatedPose);
-        }
+        VisionIOPhotonVisionSim.updateVisionSystemSimulation(simulatedPose);
+
+        Logger.recordOutput("FieldSimulation/RobotPose", simulatedPose);
+        Logger.recordOutput("Field/EstimatedPose", drive.getPose());
     }
 
-    private static boolean isPoseFinite(Pose2d pose) {
-        return Double.isFinite(pose.getX())
-            && Double.isFinite(pose.getY())
-            && Double.isFinite(pose.getRotation().getRadians());
-    }
-    
     // Call from Robot.disabledInit()
     public void resetSimulation() {
-    if (swerveDriveSimulation == null) {
-        return;
-    }
+        if (swerveDriveSimulation == null) {
+            return;
+        }
 
-    swerveDriveSimulation.setSimulationWorldPose(drive.getPose());
+        Pose2d resetPose = new Pose2d(2.0, 2.0, Rotation2d.fromDegrees(0.0));
 
-    FuelSim.getInstance().stop();
-    FuelSim.getInstance().clearFuel();
-    FuelSim.Hub.BLUE_HUB.resetScore();
-    FuelSim.Hub.RED_HUB.resetScore();
+        swerveDriveSimulation.setSimulationWorldPose(resetPose);
+        drive.setPose(resetPose);
 
-    double robotWidthMeters =
-        frc.robot.Constants.DriveConstants.kTrackWidth.in(edu.wpi.first.units.Units.Meters);
+        // Reset vision sim
+        visionSubsystem.resetSimulationVision(resetPose);
 
-    double robotLengthMeters =
-        frc.robot.Constants.DriveConstants.kWheelBase.in(edu.wpi.first.units.Units.Meters);
-
-    FuelSim.getInstance().registerRobot(
-        robotWidthMeters,
-        robotLengthMeters,
-        0.45,
-        () -> drive.getPose(),
-        () -> drive.getFieldRelativeChassisSpeeds()
-    );
-
-    FuelSim.getInstance().start();
-
+        Logger.recordOutput("Simulation/WasReset", true);
     }
 
     private void configureShooterSimulationModeChooser() {

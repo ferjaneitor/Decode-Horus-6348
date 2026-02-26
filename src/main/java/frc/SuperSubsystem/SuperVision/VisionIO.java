@@ -17,7 +17,7 @@ public interface VisionIO {
         /** Pose estimator enabled inside the IO implementation. */
         public boolean photonPoseEstimatorEnabled = false;
 
-        /** Observations (one per unread frame that produced an estimate). */
+        /** Observations (one per new frame that produced an estimate). */
         public double[] observationTimestampsSeconds = new double[0];
         public Pose3d[] observationRobotPoses = new Pose3d[0];
         public double[] observationAmbiguities = new double[0];
@@ -26,7 +26,7 @@ public interface VisionIO {
         public boolean[] observationRotationTrusted = new boolean[0];
         public long[] observationTypeOrdinals = new long[0];
 
-        /** Union of detected tag ids across the cycle. */
+        /** Union of detected tag ids for the latest frame. */
         public long[] detectedTagIdentifiers = new long[0];
 
         public long framesPerSecond = 0;

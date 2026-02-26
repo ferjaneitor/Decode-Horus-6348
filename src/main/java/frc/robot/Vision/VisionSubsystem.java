@@ -18,6 +18,7 @@ import frc.SuperSubsystem.SuperVision.LoggedVisionCamera;
 import frc.SuperSubsystem.SuperVision.VisionEntries;
 import frc.SuperSubsystem.SuperVision.VisionEnums;
 import frc.SuperSubsystem.SuperVision.VisionIO;
+import frc.SuperSubsystem.SuperVision.VisionIOPhotonVisionSim;
 import frc.SuperSubsystem.SuperVision.VisionStandardDeviationModel;
 import frc.robot.Constants.FieldCosntants;
 
@@ -80,6 +81,16 @@ public class VisionSubsystem extends SubsystemBase {
         }
     }
 
+    /** Call from RobotContainer.updateSimulation() AFTER MapleSim step. */
+    public void updateSimulationVision(Pose2d simulatedRobotPose) {
+        VisionIOPhotonVisionSim.updateVisionSystemSimulation(simulatedRobotPose);
+    }
+
+    /** Call from RobotContainer.resetSimulation(). */
+    public void resetSimulationVision(Pose2d simulatedRobotPose) {
+        VisionIOPhotonVisionSim.resetVisionSystemSimulation(simulatedRobotPose);
+    }
+
     @Override
     public void periodic() {
         if (!visionEnabled || loggedVisionCameraList.isEmpty()) {
@@ -92,9 +103,8 @@ public class VisionSubsystem extends SubsystemBase {
         double currentRobotTimestampSeconds = Timer.getFPGATimestamp();
         double yawRateRadiansPerSecond = yawRateRadiansPerSecondSupplier.get();
 
-        boolean itsAValidShootingTarget = false;
-
-        long[] validShootingTagIds = FieldCosntants.getShootingValidTagIdentifiers();
+        boolean isValidShootingTargetThisCycle = false;
+        long[] validShootingTagIdentifiers = FieldCosntants.getShootingValidTagIdentifiers();
 
         for (LoggedVisionCamera loggedVisionCamera : loggedVisionCameraList) {
             loggedVisionCamera.update(currentRobotPose3d);
@@ -105,18 +115,19 @@ public class VisionSubsystem extends SubsystemBase {
             for (long detectedTagIdentifier : visionInputs.detectedTagIdentifiers) {
                 Optional<Pose3d> fieldToTagPoseOptional = aprilTagFieldLayout.getTagPose((int) detectedTagIdentifier);
                 fieldToTagPoseOptional.ifPresent(visibleTagPoseList::add);
-                for (long validShootingTagId : validShootingTagIds) {
-                    if (detectedTagIdentifier == validShootingTagId) {
-                        itsAValidShootingTarget = true;
+
+                for (long validShootingTagIdentifier : validShootingTagIdentifiers) {
+                    if (detectedTagIdentifier == validShootingTagIdentifier) {
+                        isValidShootingTargetThisCycle = true;
                         break;
                     }
                 }
-                if (itsAValidShootingTarget) {
+                if (isValidShootingTargetThisCycle) {
                     break;
                 }
             }
 
-            this.isShootingTargetValidThisCycle = itsAValidShootingTarget;
+            this.isShootingTargetValidThisCycle = isValidShootingTargetThisCycle;
 
             int observationCount = visionInputs.observationTimestampsSeconds.length;
 
@@ -135,7 +146,10 @@ public class VisionSubsystem extends SubsystemBase {
                 int observationTypeOrdinal = (int) visionInputs.observationTypeOrdinals[observationIndex];
                 VisionEnums.PoseObservationType observationType =
                         VisionEnums.PoseObservationType.values()[
-                                Math.max(0, Math.min(observationTypeOrdinal, VisionEnums.PoseObservationType.values().length - 1))
+                                Math.max(0, Math.min(
+                                        observationTypeOrdinal,
+                                        VisionEnums.PoseObservationType.values().length - 1
+                                ))
                         ];
 
                 VisionEntries.VisionObservation visionObservation = new VisionEntries.VisionObservation(
@@ -203,8 +217,6 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     public double getLatestTargetYawRadians() {
-        // Si tienes varias cámaras, aquí decides cuál usar (por ejemplo la primera, o la que tenga target).
-        // Por ahora asumimos la primera.
         if (loggedVisionCameraList.isEmpty()) {
             return 0.0;
         }

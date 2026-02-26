@@ -81,7 +81,7 @@ public class VisionIOInputsAutoLogged
         // IMPORTANT — restore state correctly
         hasTarget = table.get("HasTarget", hasTarget);
     }
-
+    
     @Override
     public VisionIOInputsAutoLogged clone() throws CloneNotSupportedException  {
         VisionIOInputsAutoLogged copy;

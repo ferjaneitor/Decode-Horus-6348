@@ -106,6 +106,8 @@ public class Drive extends SubsystemBase {
   private boolean hasOdometryThreadBeenStarted = false;
   private boolean hasPathPlannerBeenConfigured = false;
 
+  private static final double LOOP_PERIOD_SECONDS = 0.02;
+
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
 
@@ -126,6 +128,12 @@ public class Drive extends SubsystemBase {
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
   private final Consumer<Pose2d> simulationWorldPoseConsumer;
+
+  // Last requested speeds (what the driver/auto asked for), not measured.
+  private ChassisSpeeds lastRequestedChassisSpeeds = new ChassisSpeeds();
+
+  // Protect against infinite NaN-reset loops
+  private boolean poseWasResetDueToNaN = false;
 
   public Drive(
       GyroIO gyroIO,
@@ -226,89 +234,181 @@ public class Drive extends SubsystemBase {
 
   @Override
   public void periodic() {
-      initializeIfNeeded();
+    initializeIfNeeded();
 
-      odometryLock.lock();
-      try {
-          gyroIO.updateInputs(gyroInputs);
-          Logger.processInputs("Drive/Gyro", gyroInputs);
-          for (var module : modules) {
-              module.periodic();
-          }
-      } finally {
-          odometryLock.unlock();
+    odometryLock.lock();
+    try {
+      gyroIO.updateInputs(gyroInputs);
+      Logger.processInputs("Drive/Gyro", gyroInputs);
+
+      for (var module : modules) {
+        module.periodic();
       }
-
-      if (DriverStation.isDisabled()) {
-          for (var module : modules) {
-              module.stop();
-          }
-          Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
-          Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
-      }
-
-      double[] sampleTimestamps = modules[0].getOdometryTimestamps();
-      int sampleCount = sampleTimestamps.length;
-
-      for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
-          SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
-          SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[4];
-
-          for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
-              modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[sampleIndex];
-              moduleDeltas[moduleIndex] =
-                      new SwerveModulePosition(
-                              modulePositions[moduleIndex].distanceMeters
-                                      - lastModulePositions[moduleIndex].distanceMeters,
-                              modulePositions[moduleIndex].angle);
-              lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
-          }
-
-          if (gyroInputs.connected) {
-              rawGyroRotation = gyroInputs.odometryYawPositions[sampleIndex];
-          } else {
-              Twist2d twist = kinematics.toTwist2d(moduleDeltas);
-              rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
-          }
-
-          poseEstimator.updateWithTime(sampleTimestamps[sampleIndex], rawGyroRotation, modulePositions);
-      }
-
-      gyroDisconnectedAlert.set(!gyroInputs.connected && DriveConstants.CURRENT_MODE != Mode.SIM);
-
-      // Publish an easy-to-find pose key for AdvantageScope Field2d
-    Pose2d currentPose = getPose();
-    if (!isPoseFinite(currentPose)) {
-        Pose2d fallbackPose = new Pose2d(2.0, 2.0, Rotation2d.fromDegrees(0.0));
-        setPose(fallbackPose);
-        Logger.recordOutput("Odometry/WasResetDueToNaN", true);
-    } else {
-        Logger.recordOutput("Odometry/WasResetDueToNaN", false);
+    } finally {
+      odometryLock.unlock();
     }
 
-    // Optional: easy Field2d key
-    Logger.recordOutput("Field/RobotPose", getPose());
+    // Always log DS state (super helpful in sim)
+    Logger.recordOutput("DriverStation/IsEnabled", DriverStation.isEnabled());
+    Logger.recordOutput("DriverStation/IsTeleopEnabled", DriverStation.isTeleopEnabled());
+    Logger.recordOutput("DriverStation/IsAutonomousEnabled", DriverStation.isAutonomousEnabled());
+    Logger.recordOutput("DriverStation/IsDisabled", DriverStation.isDisabled());
+    Logger.recordOutput("DriverStation/JoystickConnected0", DriverStation.isJoystickConnected(0));
+
+    // Stop moving when disabled
+    if (DriverStation.isDisabled()) {
+      for (var module : modules) {
+        module.stop();
+      }
+      Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
+      Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
+    }
+
+    // ---------------------------
+    // FIX: Robust high-rate odometry update
+    // Never assume all sampled arrays have the same length.
+    // Use the newest common window.
+    // ---------------------------
+
+    double[] moduleTimestampSamplesSeconds = modules[0].getOdometryTimestamps();
+    int commonSampleCount = moduleTimestampSamplesSeconds.length;
+
+    for (int moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
+      commonSampleCount = Math.min(commonSampleCount, modules[moduleIndex].getOdometryTimestamps().length);
+      commonSampleCount = Math.min(commonSampleCount, modules[moduleIndex].getOdometryPositions().length);
+    }
+
+    if (gyroInputs.connected) {
+      commonSampleCount = Math.min(commonSampleCount, gyroInputs.odometryYawPositions.length);
+    }
+
+    if (commonSampleCount <= 0) {
+      Logger.recordOutput("Odometry/CommonSampleCount", 0);
+    } else {
+      Logger.recordOutput("Odometry/CommonSampleCount", commonSampleCount);
+
+      int timestampStartIndex = moduleTimestampSamplesSeconds.length - commonSampleCount;
+      int gyroStartIndex =
+          gyroInputs.connected ? (gyroInputs.odometryYawPositions.length - commonSampleCount) : 0;
+
+      int[] moduleStartIndices = new int[modules.length];
+      for (int moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
+        moduleStartIndices[moduleIndex] =
+            modules[moduleIndex].getOdometryPositions().length - commonSampleCount;
+      }
+
+      for (int sampleIndex = 0; sampleIndex < commonSampleCount; sampleIndex++) {
+        SwerveModulePosition[] modulePositions = new SwerveModulePosition[modules.length];
+        SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[modules.length];
+
+        for (int moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
+          int moduleSampleIndex = moduleStartIndices[moduleIndex] + sampleIndex;
+
+          modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[moduleSampleIndex];
+          moduleDeltas[moduleIndex] =
+              new SwerveModulePosition(
+                  modulePositions[moduleIndex].distanceMeters
+                      - lastModulePositions[moduleIndex].distanceMeters,
+                  modulePositions[moduleIndex].angle);
+
+          lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
+        }
+
+        if (gyroInputs.connected) {
+          rawGyroRotation = gyroInputs.odometryYawPositions[gyroStartIndex + sampleIndex];
+        } else {
+          Twist2d twist = kinematics.toTwist2d(moduleDeltas);
+          rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
+        }
+
+        double sampleTimestampSeconds = moduleTimestampSamplesSeconds[timestampStartIndex + sampleIndex];
+        poseEstimator.updateWithTime(sampleTimestampSeconds, rawGyroRotation, modulePositions);
+      }
+    }
+
+    gyroDisconnectedAlert.set(!gyroInputs.connected && DriveConstants.CURRENT_MODE != Mode.SIM);
+
+    // Log easy-to-find pose keys for AdvantageScope
+    Pose2d currentPose = getPose();
+    Logger.recordOutput("Odometry/Robot", currentPose);        // AdvantageKit convention
+    Logger.recordOutput("Field/RobotPose", currentPose);       // Easy Field2d name
+    Logger.recordOutput("Drive/RawGyroRotation", rawGyroRotation);
+
+    // Log requested vs measured speeds (debug "doesn't move")
+    Logger.recordOutput("SwerveChassisSpeeds/Requested", lastRequestedChassisSpeeds);
+    Logger.recordOutput("SwerveChassisSpeeds/Measured", getChassisSpeeds());
+
+    // Airbag: if pose ever becomes NaN, reset once to a sane pose.
+    if (!isPoseFinite(currentPose)) {
+      if (!poseWasResetDueToNaN) {
+        Pose2d fallbackPose = new Pose2d(2.0, 2.0, Rotation2d.fromDegrees(0.0));
+        setPose(fallbackPose);
+        poseWasResetDueToNaN = true;
+      }
+      Logger.recordOutput("Odometry/WasResetDueToNaN", true);
+    } else {
+      poseWasResetDueToNaN = false;
+      Logger.recordOutput("Odometry/WasResetDueToNaN", false);
+    }
   }
-  
+
   private static boolean isPoseFinite(Pose2d pose) {
     return Double.isFinite(pose.getX())
             && Double.isFinite(pose.getY())
             && Double.isFinite(pose.getRotation().getRadians());
-}
+  }
 
   public void runVelocity(ChassisSpeeds speeds) {
-    ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, 0.02);
+    // Guardar lo pedido (tu gusto), pero sin meter lógica extra
+    if (isChassisSpeedsFinite(speeds)) {
+      lastRequestedChassisSpeeds = speeds;
+    } else {
+      lastRequestedChassisSpeeds = new ChassisSpeeds();
+    }
+
+    // EXACTO estilo template: discretize -> kinematics -> desaturate -> log -> aplicar
+    ChassisSpeeds discreteSpeeds =
+        ChassisSpeeds.discretize(lastRequestedChassisSpeeds, LOOP_PERIOD_SECONDS);
+
     SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(discreteSpeeds);
     SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, DriveConstants.kSpeedAt12Volts);
 
     Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
     Logger.recordOutput("SwerveChassisSpeeds/Setpoints", discreteSpeeds);
 
-    for (int i = 0; i < 4; i++) {
-      modules[i].runSetpoint(setpointStates[i]);
+    for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
+      modules[moduleIndex].runSetpoint(setpointStates[moduleIndex]);
     }
 
     Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
+  }
+
+  private void runModuleStates(SwerveModuleState[] setpointStates) {
+    for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
+      modules[moduleIndex].runSetpoint(setpointStates[moduleIndex]);
+    }
+  }
+
+  // FIX: X-lock without modifying any internal kinematics headings.
+  // Use the classic "X" pattern based on module quadrant.
+  private SwerveModuleState[] getXLockStates() {
+    SwerveModuleState[] xLockStates = new SwerveModuleState[4];
+    Translation2d[] moduleTranslations = getModuleTranslations();
+
+    for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
+      Translation2d moduleTranslation = moduleTranslations[moduleIndex];
+      boolean isDiagonalPositive = (moduleTranslation.getX() * moduleTranslation.getY()) > 0.0;
+
+      Rotation2d xLockAngle = Rotation2d.fromDegrees(isDiagonalPositive ? 45.0 : -45.0);
+      xLockStates[moduleIndex] = new SwerveModuleState(0.0, xLockAngle);
+    }
+
+    return xLockStates;
+  }
+
+  private static boolean isSwerveModuleStateFinite(SwerveModuleState state) {
+    return Double.isFinite(state.speedMetersPerSecond)
+        && Double.isFinite(state.angle.getRadians());
   }
 
   public void runCharacterization(double output) {
@@ -318,16 +418,19 @@ public class Drive extends SubsystemBase {
   }
 
   public void stop() {
-    runVelocity(new ChassisSpeeds());
+    // No llamar runVelocity() para evitar bucles inesperados.
+    SwerveModuleState[] stoppedStates = new SwerveModuleState[] {
+        new SwerveModuleState(0.0, Rotation2d.kZero),
+        new SwerveModuleState(0.0, Rotation2d.kZero),
+        new SwerveModuleState(0.0, Rotation2d.kZero),
+        new SwerveModuleState(0.0, Rotation2d.kZero)
+    };
+    runModuleStates(stoppedStates);
   }
 
   public void stopWithX() {
-    Rotation2d[] headings = new Rotation2d[4];
-    for (int i = 0; i < 4; i++) {
-      headings[i] = getModuleTranslations()[i].getAngle();
-    }
-    kinematics.resetHeadings(headings);
-    stop();
+    SwerveModuleState[] xLockStates = getXLockStates();
+    runModuleStates(xLockStates);
   }
 
   public Command sysIdQuasistatic(SysIdRoutine.Direction direction) {
@@ -389,17 +492,17 @@ public class Drive extends SubsystemBase {
 
   @AutoLogOutput(key = "Odometry/YawRateRadPerSec")
   public double getYawRateRadiansPerSecond() {
-      double yawRateFromGyro = gyroInputs.yawVelocityRadPerSec;
-      if (gyroInputs.connected && Double.isFinite(yawRateFromGyro)) {
-          return yawRateFromGyro;
-      }
+    double yawRateFromGyro = gyroInputs.yawVelocityRadPerSec;
+    if (gyroInputs.connected && Double.isFinite(yawRateFromGyro)) {
+      return yawRateFromGyro;
+    }
 
-      double yawRateFromKinematics = getChassisSpeeds().omegaRadiansPerSecond;
-      if (Double.isFinite(yawRateFromKinematics)) {
-          return yawRateFromKinematics;
-      }
+    double yawRateFromKinematics = getChassisSpeeds().omegaRadiansPerSecond;
+    if (Double.isFinite(yawRateFromKinematics)) {
+      return yawRateFromKinematics;
+    }
 
-      return 0.0;
+    return 0.0;
   }
 
   @AutoLogOutput(key = "SwerveChassisSpeeds/MeasuredPublic")
@@ -455,7 +558,6 @@ public class Drive extends SubsystemBase {
   }
 
   // MapleSim drivetrain configuration helper
-  // MapleSim drivetrain configuration helper
   public static DriveTrainSimulationConfig getMapleSimConfig() {
     double trackLengthMeters =
             Math.abs(TunerConstants.FrontLeft.LocationX - TunerConstants.BackLeft.LocationX);
@@ -490,5 +592,15 @@ public class Drive extends SubsystemBase {
             .withBumperSize(Meters.of(0.762), Meters.of(0.762))
             .withSwerveModule(swerveModuleSimulationConfig)
             .withCustomModuleTranslations(getModuleTranslations());
+  }
+
+  public ChassisSpeeds getLastRequestedChassisSpeeds() {
+    return lastRequestedChassisSpeeds;
+  }
+
+  private static boolean isChassisSpeedsFinite(ChassisSpeeds speeds) {
+    return Double.isFinite(speeds.vxMetersPerSecond)
+        && Double.isFinite(speeds.vyMetersPerSecond)
+        && Double.isFinite(speeds.omegaRadiansPerSecond);
   }
 }

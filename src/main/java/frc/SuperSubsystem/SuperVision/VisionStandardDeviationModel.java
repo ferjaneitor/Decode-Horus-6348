@@ -53,7 +53,9 @@ public final class VisionStandardDeviationModel {
         }
 
         double observationAgeSeconds = currentRobotTimestampSeconds - observation.timestampSeconds();
-        if (observationAgeSeconds > maximumObservationAgeSeconds) {
+
+        // If timestamps are not time-synced, age can go negative; treat that as invalid.
+        if (observationAgeSeconds < -0.05 || observationAgeSeconds > maximumObservationAgeSeconds) {
             return VisionEnums.VisionRejectReason.OBSERVATION_TOO_OLD;
         }
 
@@ -67,7 +69,10 @@ public final class VisionStandardDeviationModel {
 
         double xPositionMeters = observation.robotPose().getX();
         double yPositionMeters = observation.robotPose().getY();
-        if (xPositionMeters < 0.0 || xPositionMeters > fieldLengthMeters || yPositionMeters < 0.0 || yPositionMeters > fieldWidthMeters) {
+        if (xPositionMeters < 0.0
+                || xPositionMeters > fieldLengthMeters
+                || yPositionMeters < 0.0
+                || yPositionMeters > fieldWidthMeters) {
             return VisionEnums.VisionRejectReason.OUTSIDE_FIELD_BOUNDS;
         }
 
@@ -105,22 +110,27 @@ public final class VisionStandardDeviationModel {
         }
 
         double globalScale =
-                distanceSquaredOverTagCount *
-                multiTagBonusMultiplier *
-                distancePenaltyMultiplier *
-                cameraConfidenceMultiplier;
+                distanceSquaredOverTagCount
+                        * multiTagBonusMultiplier
+                        * distancePenaltyMultiplier
+                        * cameraConfidenceMultiplier;
 
         double xStandardDeviationMeters = baseStandardDeviations.get(0, 0) * globalScale;
         double yStandardDeviationMeters = baseStandardDeviations.get(1, 0) * globalScale;
-        double rotationStandardDeviationRadians = baseStandardDeviations.get(2, 0) * globalScale;
 
+        // Rotation: if untrusted, make it HUGE and DO NOT clamp it down.
+        double rotationStandardDeviationRadians = baseStandardDeviations.get(2, 0) * globalScale;
         if (!observation.visionRotationTrusted()) {
             rotationStandardDeviationRadians = 1e6;
         }
 
         xStandardDeviationMeters = Math.min(xStandardDeviationMeters, maximumLinearStandardDeviationMeters);
         yStandardDeviationMeters = Math.min(yStandardDeviationMeters, maximumLinearStandardDeviationMeters);
-        rotationStandardDeviationRadians = Math.min(rotationStandardDeviationRadians, maximumAngularStandardDeviationRadians);
+
+        if (observation.visionRotationTrusted()) {
+            rotationStandardDeviationRadians =
+                    Math.min(rotationStandardDeviationRadians, maximumAngularStandardDeviationRadians);
+        }
 
         return MatBuilder.fill(
                 Nat.N3(),

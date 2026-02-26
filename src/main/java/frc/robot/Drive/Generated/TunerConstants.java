@@ -48,16 +48,17 @@ public class TunerConstants {
           .withKV(DriveConstants.STEER_GAINS_KV)
           .withKA(DriveConstants.STEER_GAINS_KA)
           .withStaticFeedforwardSign(StaticFeedforwardSignValue.UseClosedLoopSign);
+
   // When using closed-loop control, the drive motor uses the control
   // output type specified by SwerveModuleConstants.DriveMotorClosedLoopOutput
   private static final Slot0Configs driveGains =
       new Slot0Configs()
-        .withKP(DriveConstants.DRIVE_GAINS_KP)
-        .withKI(DriveConstants.DRIVE_GAINS_KI)
-        .withKD(DriveConstants.DRIVE_GAINS_KD)
-        .withKS(DriveConstants.DRIVE_GAINS_KS)
-        .withKV(DriveConstants.DRIVE_GAINS_KV)
-        .withKA(DriveConstants.DRIVE_GAINS_KA);
+          .withKP(DriveConstants.DRIVE_GAINS_KP)
+          .withKI(DriveConstants.DRIVE_GAINS_KI)
+          .withKD(DriveConstants.DRIVE_GAINS_KD)
+          .withKS(DriveConstants.DRIVE_GAINS_KS)
+          .withKV(DriveConstants.DRIVE_GAINS_KV)
+          .withKA(DriveConstants.DRIVE_GAINS_KA);
 
   // The closed-loop output type to use for the steer motors;
   // This affects the PID/FF gains for the steer motors
@@ -83,24 +84,27 @@ public class TunerConstants {
   // Some configs will be overwritten; check the `with*InitialConfigs()` API
   // documentation.
   private static final TalonFXConfiguration driveInitialConfigs = new TalonFXConfiguration();
+
   private static final TalonFXConfiguration steerInitialConfigs =
       new TalonFXConfiguration()
           .withCurrentLimits(
               new CurrentLimitsConfigs()
                   // Swerve azimuth does not require much torque output, so we can set a
                   // relatively
-                  // low
-                  // stator current limit to help avoid brownouts without impacting performance.
+                  // low stator current limit to help avoid brownouts without impacting performance.
                   .withStatorCurrentLimit(Amps.of(60))
                   .withStatorCurrentLimitEnable(true));
+
   private static final CANcoderConfiguration encoderInitialConfigs = new CANcoderConfiguration();
+
   // Configs for the Pigeon 2; leave this null to skip applying Pigeon 2 configs
   private static final Pigeon2Configuration pigeonConfigs = null;
 
   // CAN bus that the devices are located on;
   // All swerve devices must share the same CAN bus
-  public static final CANBus kCANBus = new CANBus("canivore", "./logs/example.hoot");
-
+  // IMPORTANT: keep bus name and hoot path consistent with Constants.
+  public static final CANBus kCANBus =
+      new CANBus(DriveConstants.CAN_BUS, DriveConstants.HOOT_FILE_PATH);
 
   public static final SwerveDrivetrainConstants DrivetrainConstants =
       new SwerveDrivetrainConstants()
@@ -147,6 +151,7 @@ public class TunerConstants {
               DriveConstants.K_INVERT_LEFT_SIDE,
               DriveConstants.K_FRONT_LEFT_STEER_MOTOR_INVERTED,
               DriveConstants.K_FRONT_LEFT_ENCODER_INVERTED);
+
   public static final SwerveModuleConstants<
           TalonFXConfiguration, TalonFXConfiguration, CANcoderConfiguration>
       FrontRight =
@@ -160,6 +165,7 @@ public class TunerConstants {
               DriveConstants.K_INVERT_RIGHT_SIDE,
               DriveConstants.K_FRONT_RIGHT_STEER_MOTOR_INVERTED,
               DriveConstants.K_FRONT_RIGHT_ENCODER_INVERTED);
+
   public static final SwerveModuleConstants<
           TalonFXConfiguration, TalonFXConfiguration, CANcoderConfiguration>
       BackLeft =
@@ -173,6 +179,7 @@ public class TunerConstants {
               DriveConstants.K_INVERT_LEFT_SIDE,
               DriveConstants.K_BACK_LEFT_STEER_MOTOR_INVERTED,
               DriveConstants.K_BACK_LEFT_ENCODER_INVERTED);
+
   public static final SwerveModuleConstants<
           TalonFXConfiguration, TalonFXConfiguration, CANcoderConfiguration>
       BackRight =
@@ -187,18 +194,9 @@ public class TunerConstants {
               DriveConstants.K_BACK_RIGHT_STEER_MOTOR_INVERTED,
               DriveConstants.K_BACK_RIGHT_ENCODER_INVERTED);
 
-    public static ClosedLoopOutputType getkSteerClosedLoopOutput() {
-        return STEER_CLOSED_LOOP_OUTPUT;
-    }
-
-  /**
-   * Creates a CommandSwerveDrivetrain instance. This should only be called once in your robot
-   * program,.
-   */
-  // public static CommandSwerveDrivetrain createDrivetrain() {
-  // return new CommandSwerveDrivetrain(
-  // DrivetrainConstants, FrontLeft, FrontRight, BackLeft, BackRight);
-  // }
+  public static ClosedLoopOutputType getkSteerClosedLoopOutput() {
+    return STEER_CLOSED_LOOP_OUTPUT;
+  }
 
   /** Swerve Drive class utilizing CTR Electronics' Phoenix 6 API with the selected device types. */
   public static class TunerSwerveDrivetrain extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> {

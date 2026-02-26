@@ -16,6 +16,7 @@ import static edu.wpi.first.units.Units.KilogramSquareMeters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.Volts;
+
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Distance;
@@ -25,6 +26,7 @@ import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.RobotBase;
+
 import frc.SuperSubsystem.SuperMotors.SparkMax.SparkMaxEntrys;
 import frc.SuperSubsystem.SuperMotors.SparkMax.SparkMaxEntrys.SuperSparkMaxConfig;
 import frc.SuperSubsystem.SuperVision.VisionEntries;
@@ -34,7 +36,7 @@ public class Constants {
 
     public static final double BATTERY_VOLTAGE = 12.0;
 
-    public static final class DriveConstants{
+    public static final class DriveConstants {
         public static final Mode SIM_MODE = Mode.SIM;
         public static final Mode CURRENT_MODE = RobotBase.isReal() ? Mode.REAL : SIM_MODE;
 
@@ -49,8 +51,19 @@ public class Constants {
             REPLAY
         }
 
-        public static final double ROBOT_MASS_KG = 74.088;
-        public static final double ROBOT_MOI = 6.883;
+        // -----------------------
+        // Updated with your values
+        // -----------------------
+
+        // Robot mass
+        public static final double ROBOT_MASS_KG = 60.0;
+
+        // Robot footprint: 27.5" x 27.5" (0.6985 m x 0.6985 m)
+        // MOI_z ≈ (1/12) * m * (w^2 + l^2)
+        // With m=60 kg, w=l=0.6985 m => MOI_z = 4.8790225 kg*m^2
+        public static final double ROBOT_MOI = 4.8790225;
+
+        // Coefficient of friction (given)
         public static final double WHEEL_COF = 1.2;
 
         public static final double STEER_GAINS_KP = 100;
@@ -70,58 +83,69 @@ public class Constants {
         public static final Current kSlipCurrent = Amps.of(120.0);
         public static final Current SteeringStatorCurrentLimit = Amps.of(60.0);
 
-        public static final String CAN_BUS = "CANivore";
+        public static final String CAN_BUS = "6348 Horus CANivore";
         public static final String HOOT_FILE_PATH = "./logs/example.hoot";
 
-        public static final LinearVelocity kSpeedAt12Volts = MetersPerSecond.of(4.69);
+        public static final LinearVelocity kSpeedAt12Volts = MetersPerSecond.of(3.79);
 
-        public static final double K_COUPLE_RATIO = 3.8181818181818183;
-        public static final double K_DRIVE_GEAR_RATIO = 7.363636363636365;
-        public static final double K_STEER_GEAR_RATIO = 15.42857142857143;
-        public static final Distance kWheelRadius = Inches.of(2.167);
+        public static final double K_COUPLE_RATIO = 3.5714285714285716;
+        public static final double K_DRIVE_GEAR_RATIO = 8.142857142857142;
+        public static final double K_STEER_GEAR_RATIO = 21.428571428571427;
+        public static final Distance kWheelRadius = Inches.of(2.0);
 
         public static final boolean K_INVERT_LEFT_SIDE = false;
         public static final boolean K_INVERT_RIGHT_SIDE = true;
-
+        
         public static final int K_PIGEON_ID = 13;
 
-        // These are only used for simulation
-        public static final MomentOfInertia kSteerInertia = KilogramSquareMeters.of(0.0015);
-        public static final MomentOfInertia kDriveInertia = KilogramSquareMeters.of(0.025);
+        // -----------------------
+        // Simulation-only values
+        // -----------------------
+
+        // kDriveInertia: wheel spin inertia about axle (NOT steer).
+        // Each wheel mass is 0.73 lb = 0.33112243 kg
+        // Wheel radius is 2.167 in = 0.0550418 m
+        // Solid disk approximation: I = 0.5 * m * r^2 = 0.000501584 kg*m^2
+        public static final MomentOfInertia kDriveInertia = KilogramSquareMeters.of(0.01);
+
+        // kSteerInertia: azimuth rotational inertia of the entire steering mechanism.
+        // If this is too tiny, MapleSim can get numerically unstable. Use a conservative value.
+        public static final MomentOfInertia kSteerInertia = KilogramSquareMeters.of(0.01);
+
         // Simulated voltage necessary to overcome friction
         public static final Voltage kSteerFrictionVoltage = Volts.of(0.2);
         public static final Voltage kDriveFrictionVoltage = Volts.of(0.2);
 
-        public static final Distance kTrackWidth = Inches.of(27.5);
-        public static final Distance kWheelBase = Inches.of(27.5);
-
+        public static final Distance kTrackWidth = Inches.of(23.5);
+        public static final Distance kWheelBase = Inches.of(23.5);
         // Front Left
         public static final int K_FRONT_LEFT_DRIVE_MOTOR_ID = 10;
         public static final int K_FRONT_LEFT_STEER_MOTOR_ID = 6;
         public static final int K_FRONT_LEFT_ENCODER_ID = 2;
-        public static final Angle kFrontLeftEncoderOffset = Rotations.of(0.15234375);
+        public static final Angle kFrontLeftEncoderOffset = Rotations.of(0.27197265625);
         public static final boolean K_FRONT_LEFT_STEER_MOTOR_INVERTED = true;
         public static final boolean K_FRONT_LEFT_ENCODER_INVERTED = false;
 
         public static final Distance kFrontLeftXPos = kWheelBase.div(2);
         public static final Distance kFrontLeftYPos = kTrackWidth.div(2);
 
+
         // Front Right
         public static final int K_FRONT_RIGHT_DRIVE_MOTOR_ID = 9;
         public static final int K_FRONT_RIGHT_STEER_MOTOR_ID = 5;
         public static final int K_FRONT_RIGHT_ENCODER_ID = 1;
-        public static final Angle kFrontRightEncoderOffset = Rotations.of(-0.4873046875);
+        public static final Angle kFrontRightEncoderOffset = Rotations.of(-0.30810546875);
         public static final boolean K_FRONT_RIGHT_STEER_MOTOR_INVERTED = true;
         public static final boolean K_FRONT_RIGHT_ENCODER_INVERTED = false;
 
-        public static final Distance kFrontRightXPos = kWheelBase.div(2);
+       public static final Distance kFrontRightXPos = kWheelBase.div(2);
         public static final Distance kFrontRightYPos = kTrackWidth.div(-2);
 
         // Back Left
         public static final int K_BACK_LEFT_DRIVE_MOTOR_ID = 11;
         public static final int K_BACK_LEFT_STEER_MOTOR_ID = 7;
         public static final int K_BACK_LEFT_ENCODER_ID = 3;
-        public static final Angle kBackLeftEncoderOffset = Rotations.of(-0.219482421875);
+        public static final Angle kBackLeftEncoderOffset = Rotations.of(-0.41455078125);
         public static final boolean K_BACK_LEFT_STEER_MOTOR_INVERTED = true;
         public static final boolean K_BACK_LEFT_ENCODER_INVERTED = false;
 
@@ -132,7 +156,7 @@ public class Constants {
         public static final int K_BACK_RIGHT_DRIVE_MOTOR_ID = 12;
         public static final int K_BACK_RIGHT_STEER_MOTOR_ID = 8;
         public static final int K_BACK_RIGHT_ENCODER_ID = 4;
-        public static final Angle kBackRightEncoderOffset = Rotations.of(0.17236328125);
+        public static final Angle kBackRightEncoderOffset = Rotations.of(-0.14013671875);
         public static final boolean K_BACK_RIGHT_STEER_MOTOR_INVERTED = true;
         public static final boolean K_BACK_RIGHT_ENCODER_INVERTED = false;
 
@@ -150,10 +174,10 @@ public class Constants {
         public static final double WHEEL_RADIUS_RAMP_RATE = 0.05; // Rad/Sec^2
     }
 
-    public static final class AutoConstants{
+    public static final class AutoConstants {
         public static final double TRANSLATION_KP = 5.0;
         public static final double TRANSLATION_KI = 0.0;
-        public static final double TRANSLATION_KD  = 0.0;
+        public static final double TRANSLATION_KD = 0.0;
 
         public static final double ROTATION_KP = 5.0;
         public static final double ROTATION_KI = 0.0;
@@ -234,49 +258,48 @@ public class Constants {
         public static final double MINIMUM_HORIZONTAL_DISTANCE_METERS = 0.1;
     }
 
-        public static final class VisionConstants {
+    public static final class VisionConstants {
 
         @SuppressWarnings("null")
         public static final List<VisionEntries.CameraSpecifications> cameraSpecificationsList =
-                List.of(
-                        new VisionEntries.CameraSpecifications(
-                                "FrontRightTagCam",
-                                new Transform3d(
-                                    new Translation3d(0.32,-0.32,0.1778),
-                                    new Rotation3d(0,0,0)
-                                ),
-                                VisionEnums.PoseEstimateNoiseLevel.MEDIUM,
-                                1.0
-                        ),
-                        new VisionEntries.CameraSpecifications(
-                                "FrontLeftTagCam",
-                                new Transform3d(
-                                    new Translation3d(0.32,0.32,0.1778),
-                                    new Rotation3d(0,0,0)
-                                ),
-                                VisionEnums.PoseEstimateNoiseLevel.HIGH,
-                                0.8
-                        ),
-                        new VisionEntries.CameraSpecifications(
-                                "SideLeftTagCam",
-                                new Transform3d(
-                                    new Translation3d(0.32,0.32,0.1778),
-                                    new Rotation3d(0,0,Math.toRadians(90))
-                                ),
-                                VisionEnums.PoseEstimateNoiseLevel.HIGH,
-                                0.8
-                        ),
-                        new VisionEntries.CameraSpecifications(
-                                "SideRightTagCam",
-                                new Transform3d(
-                                    new Translation3d(0.32,-0.32,0.1778),
-                                    new Rotation3d(0,0,Math.toRadians(-90))
-                                ),
-                                VisionEnums.PoseEstimateNoiseLevel.HIGH,
-                                0.8
-                        )
-                        // Agrega más cámaras aquí...
-                );
+            List.of(
+                new VisionEntries.CameraSpecifications(
+                    "FrontRightTagCam",
+                    new Transform3d(
+                        new Translation3d(0.32, -0.32, 0.1778),
+                        new Rotation3d(0, 0, 0)
+                    ),
+                    VisionEnums.PoseEstimateNoiseLevel.MEDIUM,
+                    1.0
+                ),
+                new VisionEntries.CameraSpecifications(
+                    "FrontLeftTagCam",
+                    new Transform3d(
+                        new Translation3d(0.32, 0.32, 0.1778),
+                        new Rotation3d(0, 0, 0)
+                    ),
+                    VisionEnums.PoseEstimateNoiseLevel.HIGH,
+                    0.8
+                ),
+                new VisionEntries.CameraSpecifications(
+                    "SideLeftTagCam",
+                    new Transform3d(
+                        new Translation3d(0.32, 0.32, 0.1778),
+                        new Rotation3d(0, 0, Math.toRadians(90))
+                    ),
+                    VisionEnums.PoseEstimateNoiseLevel.HIGH,
+                    0.8
+                ),
+                new VisionEntries.CameraSpecifications(
+                    "SideRightTagCam",
+                    new Transform3d(
+                        new Translation3d(0.32, -0.32, 0.1778),
+                        new Rotation3d(0, 0, Math.toRadians(-90))
+                    ),
+                    VisionEnums.PoseEstimateNoiseLevel.HIGH,
+                    0.8
+                )
+            );
 
         public static final double MAXIMUM_AMBIGUITY_FOR_SINGLE_TAG = 0.20;
         public static final double MAXIMUM_Z_ERROR_METERS = 0.25;
@@ -290,13 +313,15 @@ public class Constants {
         public static final double MAXIMUM_ANGULAR_STANDARD_DEVIATION_RADIANS = 3.0;
     }
 
-    public static final class FieldCosntants{
-        
-        public static final AprilTagFieldLayout kTagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
+    public static final class FieldCosntants {
+
+        public static final AprilTagFieldLayout kTagLayout =
+            AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
+
         public static final double FIELD_LENGTH_METERS = 16.54175;
         public static final double FIELD_WIDTH_METERS = 8.0137;
 
-        public static final boolean IS_ANDYMARK_FIELD = true ;
+        public static final boolean IS_ANDYMARK_FIELD = true;
 
         public static long[] getShootingValidTagIdentifiers() {
             Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
@@ -304,12 +329,11 @@ public class Constants {
                 ? new long[] {2, 5, 8, 9, 10, 11}
                 : new long[] {18, 21, 24, 25, 26, 27};
         }
-
     }
 
     public static final class HoodConstants {
 
-        public static final int HOOD_ANGLE_TALON_ID = 14;
+        public static final int HOOD_ANGLE_TALON_ID = 15;
         public static final int RIGHT_HOOD_PROPULSION_TALON_ID = 15;
         public static final int LEFT_HOOD_PROPULSION_TALON_ID = 16;
         public static final int INDEXER_TALON_ID = 17;
@@ -472,5 +496,4 @@ public class Constants {
         public static final double CLIMBER_MAX_DUTY_CYCLE = 0.8;
         public static final double CLIMBER_EXTENDED_POSITION = 0;
     }
-
 }

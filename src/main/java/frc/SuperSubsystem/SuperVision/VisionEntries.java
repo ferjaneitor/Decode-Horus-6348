@@ -5,7 +5,6 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
-
 import java.util.Objects;
 
 public final class VisionEntries {
@@ -23,12 +22,16 @@ public final class VisionEntries {
             Objects.requireNonNull(baseNoiseLevel);
         }
 
+        /**
+         * IMPORTANT:
+         * Despite the member name, this project stores ROBOT-TO-CAMERA transforms here.
+         * PhotonLib expects ROBOT-TO-CAMERA for both simulation and pose estimation.
+         */
         public Transform3d getRobotToCameraTransform3d() {
-            return cameraToRobotTransform3d.inverse();
+            return cameraToRobotTransform3d;
         }
     }
 
-    /** Normalized observation (minimum useful data for filtering + std devs + logging). */
     public record VisionObservation(
             String cameraName,
             double timestampSeconds,
