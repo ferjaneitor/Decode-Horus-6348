@@ -21,36 +21,33 @@ public final class ShootingHelper {
     private boolean isPossibleToShoot;
 
     private final boolean isAndymarkTarget;
-    private final boolean isRedAlliance;
 
     public ShootingHelper(boolean isAndymarkTarget) {
         this.isAndymarkTarget = isAndymarkTarget;
-        Alliance allianceFromDriverStation = DriverStation.getAlliance().orElse(Alliance.Blue);
-        this.isRedAlliance = allianceFromDriverStation == Alliance.Red;
-
         this.verticalVelocityMetersPerSecond =
             ShootingConstants.VERTICAL_LAUNCH_VELOCITY_METERS_PER_SECOND;
     }
 
     public void update(Pose2d robotPoseField, ChassisSpeeds fieldSpeeds) {
 
+        Alliance currentAlliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+
         double shooterXFieldMeters = robotPoseField.getX();
         double shooterYFieldMeters = robotPoseField.getY();
 
-        double targetXFieldMeters = getTargetX();
-        double targetYFieldMeters = getTargetY();
+        double targetXFieldMeters = getTargetXFieldMeters(currentAlliance);
+        double targetYFieldMeters = getTargetYFieldMeters(currentAlliance);
 
-        // DIGITAL TARGET (constant time model)
         digitalTargetXFieldMeters =
             targetXFieldMeters - fieldSpeeds.vxMetersPerSecond * ShootingConstants.TOTAL_TIME_SECONDS;
 
         digitalTargetYFieldMeters =
             targetYFieldMeters - fieldSpeeds.vyMetersPerSecond * ShootingConstants.TOTAL_TIME_SECONDS;
 
-        double deltaX = digitalTargetXFieldMeters - shooterXFieldMeters;
-        double deltaY = digitalTargetYFieldMeters - shooterYFieldMeters;
+        double deltaXFieldMeters = digitalTargetXFieldMeters - shooterXFieldMeters;
+        double deltaYFieldMeters = digitalTargetYFieldMeters - shooterYFieldMeters;
 
-        distanceToDigitalTargetMeters = Math.hypot(deltaX, deltaY);
+        distanceToDigitalTargetMeters = Math.hypot(deltaXFieldMeters, deltaYFieldMeters);
 
         if (distanceToDigitalTargetMeters < ShootingConstants.MINIMUM_HORIZONTAL_DISTANCE_METERS) {
             isPossibleToShoot = false;
@@ -70,7 +67,7 @@ public final class ShootingHelper {
             verticalVelocityMetersPerSecond
         );
 
-        desiredChassisHeadingRadians = Math.atan2(deltaY, deltaX);
+        desiredChassisHeadingRadians = Math.atan2(deltaYFieldMeters, deltaXFieldMeters);
 
         isPossibleToShoot =
             exitSpeedMetersPerSecond <= ShootingConstants.MAXIMUM_EXIT_SPEED_METERS_PER_SECOND &&
@@ -78,23 +75,29 @@ public final class ShootingHelper {
             hoodAngleRadians <= ShootingConstants.MAXIMUM_HOOD_ANGLE_RADIANS;
     }
 
-    private double getTargetX() {
+    private double getTargetXFieldMeters(Alliance currentAlliance) {
+        boolean isRedAlliance = currentAlliance == Alliance.Red;
+
         if (isAndymarkTarget) {
             return isRedAlliance
                 ? ShootingConstants.TARGET_POSITION_RED_ALLIANCE_ANDYMARK_X_METERS
                 : ShootingConstants.TARGET_POSITION_BLUE_ALLIANCE_ANDYMARK_X_METERS;
         }
+
         return isRedAlliance
             ? ShootingConstants.TARGET_POSITION_RED_ALLIANCE_WELDED_X_METERS
             : ShootingConstants.TARGET_POSITION_BLUE_ALLIANCE_WELDED_X_METERS;
     }
 
-    private double getTargetY() {
+    private double getTargetYFieldMeters(Alliance currentAlliance) {
+        boolean isRedAlliance = currentAlliance == Alliance.Red;
+
         if (isAndymarkTarget) {
             return isRedAlliance
                 ? ShootingConstants.TARGET_POSITION_RED_ALLIANCE_ANDYMARK_Y_METERS
                 : ShootingConstants.TARGET_POSITION_BLUE_ALLIANCE_ANDYMARK_Y_METERS;
         }
+
         return isRedAlliance
             ? ShootingConstants.TARGET_POSITION_RED_ALLIANCE_WELDED_Y_METERS
             : ShootingConstants.TARGET_POSITION_BLUE_ALLIANCE_WELDED_Y_METERS;

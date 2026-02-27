@@ -80,7 +80,7 @@ public class Constants {
         public static final double DRIVE_GAINS_KV = 0.124;
         public static final double DRIVE_GAINS_KA = 0.0;
 
-        public static final Current kSlipCurrent = Amps.of(120.0);
+        public static final Current kSlipCurrent = Amps.of(60.0);
         public static final Current SteeringStatorCurrentLimit = Amps.of(60.0);
 
         public static final String CAN_BUS = "6348 Horus CANivore";
@@ -402,6 +402,21 @@ public class Constants {
         public static final double POST_SHOT_COAST_MAXIMUM_TIME_SECONDS = 0.75;
 
         public static final double POST_SHOT_WHEEL_STOP_THRESHOLD_ROTATIONS_PER_SECOND = 1.0;
+
+        // Shooter / hood simulation parameters (must match real mechanism ratios)
+
+        // Rotor rotations per shooter wheel rotation (example: 2.0 means rotor spins 2x wheel)
+        public static final double SHOOTER_WHEEL_ROTOR_TO_WHEEL_GEAR_RATIO = 1.0;
+
+        // Rotor rotations per hood arm rotation (example: 100.0 means rotor spins 100x arm)
+        public static final double HOOD_ANGLE_ROTOR_TO_ARM_GEAR_RATIO = 1.0;
+
+        // Rough inertias (tune if you care about realism; otherwise just keep stable values)
+        public static final double SHOOTER_WHEEL_MOMENT_OF_INERTIA_KG_METERS_SQUARED = 0.001;
+        public static final double HOOD_ARM_MOMENT_OF_INERTIA_KG_METERS_SQUARED = 0.004;
+
+        // Hood arm geometry (meters) for SingleJointedArmSim (tune)
+        public static final double HOOD_ARM_LENGTH_METERS = 0.33;
     }
 
     public static final class IntakeConstants {

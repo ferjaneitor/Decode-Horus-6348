@@ -1,3 +1,4 @@
+// File: src/main/java/frc/robot/Shooting/Hood/HoodSubsystem.java
 package frc.robot.Shooting.Hood;
 
 import edu.wpi.first.math.filter.Debouncer;
@@ -192,12 +193,9 @@ public class HoodSubsystem extends SubsystemBase {
     }
 
     // Single-button interface
+    // CHANGE: do not force the state machine here; only set the request flag.
     public void setShootingRequestActive(boolean isActive) {
         isShootingRequestActive = isActive;
-
-        if (isActive) {
-            hoodOperationalState = HoodOperationalState.AIMING_AND_SPINNING;
-        }
     }
 
     // CORE RULE:

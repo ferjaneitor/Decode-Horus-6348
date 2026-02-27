@@ -40,7 +40,6 @@ public class HoodIOTalonFx implements HoodIO {
 
     @Override
     public void updateInputs(HoodIOInputs inputs) {
-        // Si quieres detección real, aquí puedes leer faults / signals específicos.
         inputs.hoodAngleMotorConnected = true;
         inputs.leftWheelMotorConnected = true;
         inputs.rightWheelMotorConnected = true;
@@ -79,17 +78,25 @@ public class HoodIOTalonFx implements HoodIO {
             rightWheelMotorTalonFx.setControl(rightWheelVelocityRequest.withVelocity(0.0));
             leftWheelMotorTalonFx.setControl(leftWheelVelocityRequest.withVelocity(0.0));
             indexerMotorTalonFx.setControl(indexerDutyCycleRequest.withOutput(0.0));
+
+            double currentHoodAnglePositionRotations = hoodAngleMotorTalonFx.getPosition().getValueAsDouble();
+            hoodAngleMotorTalonFx.setControl(
+                hoodAnglePositionRequest.withPosition(currentHoodAnglePositionRotations)
+            );
             return;
         }
 
-        // Wheels: right negative, left positive (como tu convención actual)
-        rightWheelMotorTalonFx.setControl(rightWheelVelocityRequest.withVelocity(-outputs.goalWheelRotationsPerSecond));
-        leftWheelMotorTalonFx.setControl(leftWheelVelocityRequest.withVelocity(outputs.goalWheelRotationsPerSecond));
+        rightWheelMotorTalonFx.setControl(
+            rightWheelVelocityRequest.withVelocity(-outputs.goalWheelRotationsPerSecond)
+        );
+        leftWheelMotorTalonFx.setControl(
+            leftWheelVelocityRequest.withVelocity(outputs.goalWheelRotationsPerSecond)
+        );
 
-        // Hood angle: position in rotations
-        hoodAngleMotorTalonFx.setControl(hoodAnglePositionRequest.withPosition(outputs.goalHoodAnglePositionRotations));
+        hoodAngleMotorTalonFx.setControl(
+            hoodAnglePositionRequest.withPosition(outputs.goalHoodAnglePositionRotations)
+        );
 
-        // Indexer
         double requestedDutyCycle = outputs.indexerEnabled ? HoodConstants.INDEXER_SPEED : 0.0;
         indexerMotorTalonFx.setControl(indexerDutyCycleRequest.withOutput(requestedDutyCycle));
     }

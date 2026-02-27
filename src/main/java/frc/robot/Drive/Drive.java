@@ -142,7 +142,13 @@ public class Drive extends SubsystemBase {
       ModuleIO backLeftModuleIo,
       ModuleIO backRightModuleIo) {
 
-    this(gyroIO, frontLeftModuleIo, frontRightModuleIo, backLeftModuleIo, backRightModuleIo, (pose) -> {});
+    this(
+        gyroIO,
+        frontLeftModuleIo,
+        frontRightModuleIo,
+        backLeftModuleIo,
+        backRightModuleIo,
+        (pose) -> {});
   }
 
   public Drive(
@@ -156,10 +162,14 @@ public class Drive extends SubsystemBase {
     this.gyroIO = gyroIO;
     this.simulationWorldPoseConsumer = simulationWorldPoseConsumer;
 
-    modules[0] = new frc.robot.Drive.SwerveModule.Module(frontLeftModuleIo, 0, TunerConstants.FrontLeft);
-    modules[1] = new frc.robot.Drive.SwerveModule.Module(frontRightModuleIo, 1, TunerConstants.FrontRight);
-    modules[2] = new frc.robot.Drive.SwerveModule.Module(backLeftModuleIo, 2, TunerConstants.BackLeft);
-    modules[3] = new frc.robot.Drive.SwerveModule.Module(backRightModuleIo, 3, TunerConstants.BackRight);
+    modules[0] =
+        new frc.robot.Drive.SwerveModule.Module(frontLeftModuleIo, 0, TunerConstants.FrontLeft);
+    modules[1] =
+        new frc.robot.Drive.SwerveModule.Module(frontRightModuleIo, 1, TunerConstants.FrontRight);
+    modules[2] =
+        new frc.robot.Drive.SwerveModule.Module(backLeftModuleIo, 2, TunerConstants.BackLeft);
+    modules[3] =
+        new frc.robot.Drive.SwerveModule.Module(backRightModuleIo, 3, TunerConstants.BackRight);
 
     HAL.report(tResourceType.kResourceType_RobotDrive, tInstances.kRobotDriveSwerve_AdvantageKit);
   }
@@ -190,15 +200,13 @@ public class Drive extends SubsystemBase {
         this::runVelocity,
         new PPHolonomicDriveController(
             new PIDConstants(
-              Constants.AutoConstants.TRANSLATION_KP,
-              Constants.AutoConstants.TRANSLATION_KI,
-              Constants.AutoConstants.TRANSLATION_KD
-            ),
+                Constants.AutoConstants.TRANSLATION_KP,
+                Constants.AutoConstants.TRANSLATION_KI,
+                Constants.AutoConstants.TRANSLATION_KD),
             new PIDConstants(
-              Constants.AutoConstants.ROTATION_KP,
-              Constants.AutoConstants.ROTATION_KI,
-              Constants.AutoConstants.ROTATION_KD
-            )),
+                Constants.AutoConstants.ROTATION_KP,
+                Constants.AutoConstants.ROTATION_KI,
+                Constants.AutoConstants.ROTATION_KD)),
         pathPlannerRobotConfig,
         () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
         this);
@@ -265,7 +273,7 @@ public class Drive extends SubsystemBase {
     }
 
     // ---------------------------
-    // FIX: Robust high-rate odometry update
+    // Robust high-rate odometry update
     // Never assume all sampled arrays have the same length.
     // Use the newest common window.
     // ---------------------------
@@ -274,8 +282,10 @@ public class Drive extends SubsystemBase {
     int commonSampleCount = moduleTimestampSamplesSeconds.length;
 
     for (int moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
-      commonSampleCount = Math.min(commonSampleCount, modules[moduleIndex].getOdometryTimestamps().length);
-      commonSampleCount = Math.min(commonSampleCount, modules[moduleIndex].getOdometryPositions().length);
+      commonSampleCount =
+          Math.min(commonSampleCount, modules[moduleIndex].getOdometryTimestamps().length);
+      commonSampleCount =
+          Math.min(commonSampleCount, modules[moduleIndex].getOdometryPositions().length);
     }
 
     if (gyroInputs.connected) {
@@ -294,8 +304,7 @@ public class Drive extends SubsystemBase {
       int[] moduleStartIndices = new int[modules.length];
       int moduleIndex = 0;
       for (var module : modules) {
-        moduleStartIndices[moduleIndex] =
-            module.getOdometryPositions().length - commonSampleCount;
+        moduleStartIndices[moduleIndex] = module.getOdometryPositions().length - commonSampleCount;
         moduleIndex++;
       }
 
@@ -325,7 +334,8 @@ public class Drive extends SubsystemBase {
           rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
         }
 
-        double sampleTimestampSeconds = moduleTimestampSamplesSeconds[timestampStartIndex + sampleIndex];
+        double sampleTimestampSeconds =
+            moduleTimestampSamplesSeconds[timestampStartIndex + sampleIndex];
         poseEstimator.updateWithTime(sampleTimestampSeconds, rawGyroRotation, modulePositions);
       }
     }
@@ -334,8 +344,8 @@ public class Drive extends SubsystemBase {
 
     // Log easy-to-find pose keys for AdvantageScope
     Pose2d currentPose = getPose();
-    Logger.recordOutput("Odometry/Robot", currentPose);        // AdvantageKit convention
-    Logger.recordOutput("Field/RobotPose", currentPose);       // Easy Field2d name
+    Logger.recordOutput("Odometry/Robot", currentPose); // AdvantageKit convention
+    Logger.recordOutput("Field/RobotPose", currentPose); // Easy Field2d name
     Logger.recordOutput("Drive/RawGyroRotation", rawGyroRotation);
 
     // Log requested vs measured speeds (debug "doesn't move")
@@ -358,19 +368,19 @@ public class Drive extends SubsystemBase {
 
   private static boolean isPoseFinite(Pose2d pose) {
     return Double.isFinite(pose.getX())
-            && Double.isFinite(pose.getY())
-            && Double.isFinite(pose.getRotation().getRadians());
+        && Double.isFinite(pose.getY())
+        && Double.isFinite(pose.getRotation().getRadians());
   }
 
   public void runVelocity(ChassisSpeeds speeds) {
-    // Guardar lo pedido (tu gusto), pero sin meter lógica extra
+    // Store the requested speeds, but do not add extra control logic here.
     if (isChassisSpeedsFinite(speeds)) {
       lastRequestedChassisSpeeds = speeds;
     } else {
       lastRequestedChassisSpeeds = new ChassisSpeeds();
     }
 
-    // EXACTO estilo template: discretize -> kinematics -> desaturate -> log -> aplicar
+    // Template style: discretize -> kinematics -> desaturate -> log -> apply
     ChassisSpeeds discreteSpeeds =
         ChassisSpeeds.discretize(lastRequestedChassisSpeeds, LOOP_PERIOD_SECONDS);
 
@@ -380,26 +390,33 @@ public class Drive extends SubsystemBase {
     Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
     Logger.recordOutput("SwerveChassisSpeeds/Setpoints", discreteSpeeds);
 
-    for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
-      modules[moduleIndex].runSetpoint(setpointStates[moduleIndex]);
+    for (int moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
+      SwerveModuleState requestedModuleState = setpointStates[moduleIndex];
+
+      if (!isSwerveModuleStateFinite(requestedModuleState)) {
+        requestedModuleState = new SwerveModuleState(0.0, Rotation2d.kZero);
+        setpointStates[moduleIndex] = requestedModuleState; // keep logs consistent
+      }
+
+      modules[moduleIndex].runSetpoint(requestedModuleState);
     }
 
     Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
   }
 
   private void runModuleStates(SwerveModuleState[] setpointStates) {
-    for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
+    for (int moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
       modules[moduleIndex].runSetpoint(setpointStates[moduleIndex]);
     }
   }
 
-  // FIX: X-lock without modifying any internal kinematics headings.
+  // X-lock without modifying any internal kinematics headings.
   // Use the classic "X" pattern based on module quadrant.
   private SwerveModuleState[] getXLockStates() {
-    SwerveModuleState[] xLockStates = new SwerveModuleState[4];
+    SwerveModuleState[] xLockStates = new SwerveModuleState[modules.length];
     Translation2d[] moduleTranslations = getModuleTranslations();
 
-    for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
+    for (int moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
       Translation2d moduleTranslation = moduleTranslations[moduleIndex];
       boolean isDiagonalPositive = (moduleTranslation.getX() * moduleTranslation.getY()) > 0.0;
 
@@ -415,20 +432,21 @@ public class Drive extends SubsystemBase {
         && Double.isFinite(state.angle.getRadians());
   }
 
-  public void runCharacterization(double output) {
-    for (int i = 0; i < 4; i++) {
-      modules[i].runCharacterization(output);
+  public void runCharacterization(double outputVoltageVolts) {
+    for (var module : modules) {
+      module.runCharacterization(outputVoltageVolts);
     }
   }
 
   public void stop() {
-    // No llamar runVelocity() para evitar bucles inesperados.
-    SwerveModuleState[] stoppedStates = new SwerveModuleState[] {
-        new SwerveModuleState(0.0, Rotation2d.kZero),
-        new SwerveModuleState(0.0, Rotation2d.kZero),
-        new SwerveModuleState(0.0, Rotation2d.kZero),
-        new SwerveModuleState(0.0, Rotation2d.kZero)
-    };
+    // Do not call runVelocity() here to avoid unexpected feedback loops.
+    SwerveModuleState[] stoppedStates =
+        new SwerveModuleState[] {
+          new SwerveModuleState(0.0, Rotation2d.kZero),
+          new SwerveModuleState(0.0, Rotation2d.kZero),
+          new SwerveModuleState(0.0, Rotation2d.kZero),
+          new SwerveModuleState(0.0, Rotation2d.kZero)
+        };
     runModuleStates(stoppedStates);
   }
 
@@ -453,19 +471,27 @@ public class Drive extends SubsystemBase {
 
   @AutoLogOutput(key = "SwerveStates/Measured")
   private SwerveModuleState[] getModuleStates() {
-    SwerveModuleState[] states = new SwerveModuleState[4];
-    for (int i = 0; i < 4; i++) {
-      states[i] = modules[i].getState();
+    SwerveModuleState[] measuredModuleStates = new SwerveModuleState[modules.length];
+
+    int moduleIndex = 0;
+    for (var module : modules) {
+      measuredModuleStates[moduleIndex] = module.getState();
+      moduleIndex++;
     }
-    return states;
+
+    return measuredModuleStates;
   }
 
   private SwerveModulePosition[] getModulePositions() {
-    SwerveModulePosition[] states = new SwerveModulePosition[4];
-    for (int i = 0; i < 4; i++) {
-      states[i] = modules[i].getPosition();
+    SwerveModulePosition[] measuredModulePositions = new SwerveModulePosition[modules.length];
+
+    int moduleIndex = 0;
+    for (var module : modules) {
+      measuredModulePositions[moduleIndex] = module.getPosition();
+      moduleIndex++;
     }
-    return states;
+
+    return measuredModulePositions;
   }
 
   @AutoLogOutput(key = "SwerveChassisSpeeds/Measured")
@@ -474,19 +500,27 @@ public class Drive extends SubsystemBase {
   }
 
   public double[] getWheelRadiusCharacterizationPositions() {
-    double[] values = new double[4];
-    for (int i = 0; i < 4; i++) {
-      values[i] = modules[i].getWheelRadiusCharacterizationPosition();
+    double[] wheelRadiusCharacterizationPositionsMeters = new double[modules.length];
+
+    int moduleIndex = 0;
+    for (var module : modules) {
+      wheelRadiusCharacterizationPositionsMeters[moduleIndex] =
+          module.getWheelRadiusCharacterizationPosition();
+      moduleIndex++;
     }
-    return values;
+
+    return wheelRadiusCharacterizationPositionsMeters;
   }
 
   public double getFFCharacterizationVelocity() {
-    double output = 0.0;
-    for (int i = 0; i < 4; i++) {
-      output += modules[i].getFFCharacterizationVelocity() / 4.0;
+    double feedforwardCharacterizationVelocitySumMetersPerSecond = 0.0;
+
+    for (var module : modules) {
+      feedforwardCharacterizationVelocitySumMetersPerSecond +=
+          module.getFFCharacterizationVelocity();
     }
-    return output;
+
+    return feedforwardCharacterizationVelocitySumMetersPerSecond / modules.length;
   }
 
   @AutoLogOutput(key = "Odometry/Robot")
@@ -564,38 +598,37 @@ public class Drive extends SubsystemBase {
   // MapleSim drivetrain configuration helper
   public static DriveTrainSimulationConfig getMapleSimConfig() {
     double trackLengthMeters =
-            Math.abs(TunerConstants.FrontLeft.LocationX - TunerConstants.BackLeft.LocationX);
+        Math.abs(TunerConstants.FrontLeft.LocationX - TunerConstants.BackLeft.LocationX);
 
     double trackWidthMeters =
-            Math.abs(TunerConstants.FrontLeft.LocationY - TunerConstants.FrontRight.LocationY);
+        Math.abs(TunerConstants.FrontLeft.LocationY - TunerConstants.FrontRight.LocationY);
 
     double wheelRadiusMeters = TunerConstants.FrontLeft.WheelRadius;
 
     double wheelCoefficientOfFrictionForSimulation = DriveConstants.WHEEL_COF;
 
     // IMPORTANT:
-    // The inertia that MapleSim expects here is the STEER (azimuth) rotation inertia, not the wheel spin inertia.
-    // Use your constants for simulation.
+    // The inertia that MapleSim expects here is the STEER (azimuth) rotation inertia,
+    // not the wheel spin inertia. Use your constants for simulation.
     SwerveModuleSimulationConfig swerveModuleSimulationConfig =
-            new SwerveModuleSimulationConfig(
-                    DCMotor.getKrakenX60Foc(1),
-                    DCMotor.getKrakenX60Foc(1),
-                    TunerConstants.FrontLeft.DriveMotorGearRatio,
-                    TunerConstants.FrontLeft.SteerMotorGearRatio,
-                    DriveConstants.kDriveFrictionVoltage,
-                    DriveConstants.kSteerFrictionVoltage,
-                    Meters.of(wheelRadiusMeters),
-                    DriveConstants.kSteerInertia,
-                    wheelCoefficientOfFrictionForSimulation
-            );
+        new SwerveModuleSimulationConfig(
+            DCMotor.getKrakenX60Foc(1),
+            DCMotor.getKrakenX60Foc(1),
+            TunerConstants.FrontLeft.DriveMotorGearRatio,
+            TunerConstants.FrontLeft.SteerMotorGearRatio,
+            DriveConstants.kDriveFrictionVoltage,
+            DriveConstants.kSteerFrictionVoltage,
+            Meters.of(wheelRadiusMeters),
+            DriveConstants.kSteerInertia,
+            wheelCoefficientOfFrictionForSimulation);
 
     return DriveTrainSimulationConfig.Default()
-            .withGyro(COTS.ofPigeon2())
-            .withRobotMass(Kilograms.of(ROBOT_MASS_KILOGRAMS))
-            .withTrackLengthTrackWidth(Meters.of(trackLengthMeters), Meters.of(trackWidthMeters))
-            .withBumperSize(Meters.of(0.762), Meters.of(0.762))
-            .withSwerveModule(swerveModuleSimulationConfig)
-            .withCustomModuleTranslations(getModuleTranslations());
+        .withGyro(COTS.ofPigeon2())
+        .withRobotMass(Kilograms.of(ROBOT_MASS_KILOGRAMS))
+        .withTrackLengthTrackWidth(Meters.of(trackLengthMeters), Meters.of(trackWidthMeters))
+        .withBumperSize(Meters.of(0.762), Meters.of(0.762))
+        .withSwerveModule(swerveModuleSimulationConfig)
+        .withCustomModuleTranslations(getModuleTranslations());
   }
 
   public ChassisSpeeds getLastRequestedChassisSpeeds() {
