@@ -140,6 +140,7 @@ public class Constants {
 
        public static final Distance kFrontRightXPos = kWheelBase.div(2);
         public static final Distance kFrontRightYPos = kTrackWidth.div(-2);
+        //hay que modificcar algo extra ahorita para probar sin cámaras?
 
         // Back Left
         public static final int K_BACK_LEFT_DRIVE_MOTOR_ID = 11;
@@ -334,8 +335,8 @@ public class Constants {
     public static final class HoodConstants {
 
         public static final int HOOD_ANGLE_TALON_ID = 15;
-        public static final int RIGHT_HOOD_PROPULSION_TALON_ID = 15;
-        public static final int LEFT_HOOD_PROPULSION_TALON_ID = 16;
+        public static final int RIGHT_HOOD_PROPULSION_TALON_ID = 16;
+        public static final int LEFT_HOOD_PROPULSION_TALON_ID = 14;
         public static final int INDEXER_TALON_ID = 17;
 
         public static final Slot0Configs HOOD_ANGLE_SLOT_CONFIGS = new Slot0Configs()
@@ -405,10 +406,10 @@ public class Constants {
 
     public static final class IntakeConstants {
 
-        public static final int INTAKE_MOTOR_ID = 1;
-        public static final int PIVOT_INTAKE_MOTOR_ID = 2;
+        public static final int INTAKE_MOTOR_ID = 19;
+        public static final int PIVOT_INTAKE_MOTOR_ID = 18;
 
-        public static final double INTAKE_ACTIVATION_VOLTAGE_VOLTS = 12.0;
+        public static final double INTAKE_ACTIVATION_VOLTAGE_VOLTS = 12.0 * 0.6;
 
         // ---------------------------
         // Your calibration-friendly space (normalized rotations 0..1)
@@ -481,8 +482,8 @@ public class Constants {
     }
 
     public static final class ClimberConstants {
-        public static final int LEFT_CLIMBER_MOTOR_ID = 3;
-        public static final int RIGHT_CLIMBER_MOTOR_ID = 4;
+        public static final int LEFT_CLIMBER_MOTOR_ID = 20;
+        public static final int RIGHT_CLIMBER_MOTOR_ID = 21;
 
         public static final SparkMaxEntrys.SuperSparkMaxConfig CLIMBER_MOTOR_CONFIG() {
             SuperSparkMaxConfig config = new SparkMaxEntrys.SuperSparkMaxConfig();

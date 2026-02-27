@@ -292,19 +292,22 @@ public class Drive extends SubsystemBase {
           gyroInputs.connected ? (gyroInputs.odometryYawPositions.length - commonSampleCount) : 0;
 
       int[] moduleStartIndices = new int[modules.length];
-      for (int moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
+      int moduleIndex = 0;
+      for (var module : modules) {
         moduleStartIndices[moduleIndex] =
-            modules[moduleIndex].getOdometryPositions().length - commonSampleCount;
+            module.getOdometryPositions().length - commonSampleCount;
+        moduleIndex++;
       }
 
       for (int sampleIndex = 0; sampleIndex < commonSampleCount; sampleIndex++) {
         SwerveModulePosition[] modulePositions = new SwerveModulePosition[modules.length];
         SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[modules.length];
 
-        for (int moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
+        moduleIndex = 0;
+        for (var module : modules) {
           int moduleSampleIndex = moduleStartIndices[moduleIndex] + sampleIndex;
 
-          modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[moduleSampleIndex];
+          modulePositions[moduleIndex] = module.getOdometryPositions()[moduleSampleIndex];
           moduleDeltas[moduleIndex] =
               new SwerveModulePosition(
                   modulePositions[moduleIndex].distanceMeters
@@ -312,6 +315,7 @@ public class Drive extends SubsystemBase {
                   modulePositions[moduleIndex].angle);
 
           lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
+          moduleIndex++;
         }
 
         if (gyroInputs.connected) {
